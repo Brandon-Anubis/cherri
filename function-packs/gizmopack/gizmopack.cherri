@@ -1,0 +1,14 @@
+// [Doc]: [QR Codes] Generate QR Code: Generates a QR code image from a text value.
+action 'com.gizmopack.action.generateqrcode' gzGenerateQRCode(text input): image
+
+// [Doc]: [QR Codes] Read QR Code: Reads and decodes a QR code from an image.
+action 'com.gizmopack.action.readqrcode' gzReadQRCode(image input): text
+
+// [Doc]: [Images] Resize Image: Resizes an image to the given width and height.
+action 'com.gizmopack.action.resizeimage' gzResizeImage(image input, number width, number height): image
+
+// [Doc]: [Utilities] Convert Units: Converts a numeric value from one unit to another.
+action 'com.gizmopack.action.convertunits' gzConvertUnits(number value, text fromUnit, text toUnit): number
+
+// [Doc]: [Utilities] Format Date: Formats a date using a custom format string.
+action 'com.gizmopack.action.formatdate' gzFormatDate(date input, text format): text

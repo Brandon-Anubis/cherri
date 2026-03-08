@@ -56,6 +56,11 @@ func parseIncludes() {
 			parseInclude()
 			resetParse()
 			includedFile = true
+		case tokenAhead(Pack):
+			advance()
+			parsePack()
+			resetParse()
+			includedFile = true
 		}
 		advance()
 	}
@@ -133,6 +138,60 @@ func parseInclude() {
 
 	lines[lineIdx] = includeContents
 	included = append(included, includePath)
+}
+
+// parsePack handles a #pack directive by resolving the named function pack,
+// loading its source files into lines, and clearing the directive line.
+// Syntax:
+//
+//	#pack 'pack-id'
+//	#pack 'pack-id' >= 'min-version'
+//	#pack 'pack-id' == 'exact-version'
+//	#pack 'pack-id' as 'alias'
+func parsePack() {
+	var lineRef = newLineReference()
+
+	if char != '\'' {
+		parserError("Expected pack ID as a raw string (') after #pack")
+	}
+	advance()
+	var packID = collectRawString()
+
+	var op string
+	var version string
+	var alias string
+
+	skipWhitespace()
+
+	switch {
+	case tokenAhead(GreaterOrEqual):
+		op = ">="
+		skipWhitespace()
+		if char == '\'' {
+			advance()
+			version = collectRawString()
+		}
+	case tokenAhead(Is):
+		op = "=="
+		skipWhitespace()
+		if char == '\'' {
+			advance()
+			version = collectRawString()
+		}
+	default:
+		skipWhitespace()
+		if tokenAhead("as") {
+			skipWhitespace()
+			if char == '\'' {
+				advance()
+				alias = collectRawString()
+			}
+		}
+	}
+
+	lineRef.replaceLines()
+
+	resolvePackDirective(packID, op, version, alias)
 }
 
 var packageIncludeRegex = regexp.MustCompile("packages/@(.*?)/(.*?)/")

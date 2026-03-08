@@ -1,0 +1,6 @@
+// Test function pack import
+
+#pack 'test-pack'
+
+@greeting = tpGreet("World")
+@result = tpAdd(1, 2)

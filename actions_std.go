@@ -1977,6 +1977,28 @@ func includeStandardActions() {
 }
 
 func checkMissingStandardInclude(identifier *string, parsing bool) {
+	// Check installed function packs before standard includes.
+	if parsing {
+		var packSuggestion = suggestPackForAction(*identifier)
+		if packSuggestion != "" {
+			exit(packSuggestion)
+		}
+	} else {
+		// During decompile: check if the Shortcuts identifier maps to a pack action.
+		loadPackRegistry()
+		if pid, funcName, packFound := findPackByShortcutIdentifier(*identifier); packFound {
+			resolvePackDirective(pid, "", "", "")
+			mapSplitActions()
+			if _, found := actions[funcName]; found {
+				var packDirective = fmt.Sprintf("#pack '%s'", pid)
+				if !containsStr(importedPacks, pid) {
+					popLine(packDirective)
+				}
+				return
+			}
+		}
+	}
+
 	if !parsing && !args.Using("no-toolkit") {
 		connectToolkitDB()
 		var identifiers = strings.Split(*identifier, ".")

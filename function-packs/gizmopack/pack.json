@@ -1,0 +1,19 @@
+{
+	"id": "gizmopack",
+	"displayName": "GizmoPack",
+	"version": "1.5.0",
+	"author": "GizmoPack Team",
+	"homepage": "https://gizmopack.app",
+	"minCherriVersion": "0.1",
+	"sources": [
+		"gizmopack.cherri"
+	],
+	"prefix": "gz",
+	"identifierIndex": {
+		"com.gizmopack.action.generateqrcode": "gzGenerateQRCode",
+		"com.gizmopack.action.readqrcode": "gzReadQRCode",
+		"com.gizmopack.action.resizeimage": "gzResizeImage",
+		"com.gizmopack.action.convertunits": "gzConvertUnits",
+		"com.gizmopack.action.formatdate": "gzFormatDate"
+	}
+}

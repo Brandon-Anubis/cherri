@@ -98,6 +98,7 @@ type actionDefinition struct {
 	maxVersion         float64
 	setKey             string
 	builtin            bool // builtin is based on if the action was in the actions map when it was first initialized.
+	packID             string // packID is set when the action was loaded from a function pack.
 }
 
 var enumerations = map[string][]string{
@@ -772,7 +773,7 @@ func appIntentDescriptor(intent appIntent) map[string]any {
 
 // handleActionDefinitions parses defined actions in the current file and collects them into the actions map.
 func handleActionDefinitions() {
-	if !regexp.MustCompile(`action (?:'(.+)')?(.*?)\((.*?)\)$`).MatchString(contents) && !regexp.MustCompile(`enum (.*?) \{`).MatchString(contents) {
+	if !regexp.MustCompile(`(?m)^action `).MatchString(contents) && !regexp.MustCompile(`enum (.*?) \{`).MatchString(contents) {
 		return
 	}
 	parseActionDefinitions()
@@ -858,6 +859,7 @@ func collectDefinedAction() {
 		minVersion:         minVersion,
 		maxVersion:         maxVersion,
 		doc:                doc,
+		packID:             currentLoadingPackID,
 	}
 }
 

@@ -1,0 +1,19 @@
+{
+	"id": "nautomate",
+	"displayName": "Nautomate",
+	"version": "2.0.0",
+	"author": "Nautomate",
+	"homepage": "https://nautomate.app",
+	"minCherriVersion": "0.1",
+	"sources": [
+		"nautomate.cherri"
+	],
+	"prefix": "na",
+	"identifierIndex": {
+		"app.nautomate.action.sendnotification": "naSendNotification",
+		"app.nautomate.action.getdevicename": "naGetDeviceName",
+		"app.nautomate.action.setbluetooth": "naSetBluetooth",
+		"app.nautomate.action.setwifi": "naSetWifi",
+		"app.nautomate.action.getbatterystate": "naGetBatteryState"
+	}
+}

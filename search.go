@@ -20,6 +20,9 @@ func handleActionSearch() {
 				continue
 			}
 			fmt.Println(generateActionDefinition(parameterDefinition{}, true))
+			if definition.packID != "" {
+				fmt.Printf(ansi("  [pack: %s]\n", cyan), definition.packID)
+			}
 			fmt.Print("\n---\n")
 		}
 		return
@@ -35,6 +38,9 @@ func actionsSearch() {
 	if _, found := actions[identifier]; found {
 		setCurrentAction(identifier, actions[identifier])
 		fmt.Println(generateActionDefinition(parameterDefinition{}, true))
+		if actions[identifier].packID != "" {
+			fmt.Printf(ansi("  [pack: %s]\n", cyan), actions[identifier].packID)
+		}
 		return
 	}
 

@@ -30,6 +30,7 @@ const (
 	Question       tokenType = "#question"
 	Include        tokenType = "#include"
 	Import         tokenType = "#import"
+	Pack           tokenType = "#pack"
 	Action         tokenType = "action"
 	Function       tokenType = "function"
 	Copy           tokenType = "copy"
