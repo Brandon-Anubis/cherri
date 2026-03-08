@@ -15,7 +15,11 @@
 *.cherri
 !/actions/*.cherri
 !/tests/*.cherri
+!/function-packs/**/*.cherri
+!/tests/function-packs/**/*.cherri
 /tests/*_decompiled.plist
+/tests/decomp-me.cherri
+/tests/cherri.lock
 !stdlib.cherri
 *.prof
 
@@ -33,3 +37,4 @@
 
 # Nix
 result
+cherri

@@ -1,0 +1,16 @@
+{
+	"id": "test-pack",
+	"displayName": "Test Pack",
+	"version": "1.0.0",
+	"author": "Cherri Test Suite",
+	"homepage": "",
+	"minCherriVersion": "0.1",
+	"sources": [
+		"test-pack.cherri"
+	],
+	"prefix": "tp",
+	"identifierIndex": {
+		"com.example.testpack.greet": "tpGreet",
+		"com.example.testpack.add": "tpAdd"
+	}
+}

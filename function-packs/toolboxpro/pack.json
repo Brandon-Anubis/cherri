@@ -1,0 +1,21 @@
+{
+	"id": "toolboxpro",
+	"displayName": "Toolbox Pro",
+	"version": "4.4.1",
+	"author": "Simon B Støvring",
+	"homepage": "https://toolboxpro.app",
+	"minCherriVersion": "0.1",
+	"sources": [
+		"toolboxpro.cherri"
+	],
+	"prefix": "tbp",
+	"identifierIndex": {
+		"is.toolboxpro.toolboxpro.combinelists": "tbpCombineLists",
+		"is.toolboxpro.toolboxpro.filterlists": "tbpFilterLists",
+		"is.toolboxpro.toolboxpro.pickfromlist": "tbpPickFromList",
+		"is.toolboxpro.toolboxpro.getvariable": "tbpGetVariable",
+		"is.toolboxpro.toolboxpro.setvariable": "tbpSetVariable",
+		"is.toolboxpro.toolboxpro.removevariable": "tbpRemoveVariable",
+		"is.toolboxpro.toolboxpro.createtable": "tbpCreateTable"
+	}
+}

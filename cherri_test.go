@@ -161,4 +161,10 @@ func resetParser() {
 	menus = map[string][]varValue{}
 	uuids = map[string]string{}
 	functions = map[string]*function{}
+	importedPacks = []string{}
+	importedPacksAliases = map[string]string{}
+	packRegistry = newPackRegistry()
+	packRegistryLoaded = false
+	currentLoadingPackID = ""
+	lockFilePath = ""
 }

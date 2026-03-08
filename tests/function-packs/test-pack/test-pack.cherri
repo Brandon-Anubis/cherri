@@ -1,0 +1,3 @@
+action 'com.example.testpack.greet' tpGreet(text name): text
+
+action 'com.example.testpack.add' tpAdd(number a, number b): number

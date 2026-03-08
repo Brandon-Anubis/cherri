@@ -1,0 +1,14 @@
+// [Doc]: [Notifications] Send Notification: Sends a custom notification via Nautomate.
+action 'app.nautomate.action.sendnotification' naSendNotification(text title, text body?, text sound?)
+
+// [Doc]: [Device] Get Device Name: Returns the name of the current device.
+action 'app.nautomate.action.getdevicename' naGetDeviceName(): text
+
+// [Doc]: [Connectivity] Set Bluetooth: Enables or disables Bluetooth.
+action 'app.nautomate.action.setbluetooth' naSetBluetooth(bool enabled)
+
+// [Doc]: [Connectivity] Set Wi-Fi: Enables or disables Wi-Fi.
+action 'app.nautomate.action.setwifi' naSetWifi(bool enabled)
+
+// [Doc]: [Device] Get Battery State: Returns information about the current battery state.
+action 'app.nautomate.action.getbatterystate' naGetBatteryState(): text

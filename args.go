@@ -132,6 +132,26 @@ func init() {
 		DefaultValue: "",
 		ExpectsValue: true,
 	})
+	args.Register(args.Argument{
+		Name:        "list-packs",
+		Description: "List installed function packs.",
+	})
+	args.Register(args.Argument{
+		Name:         "pack-info",
+		Description:  "Show details for a specific function pack by ID.",
+		ExpectsValue: true,
+		DefaultValue: "",
+	})
+	args.Register(args.Argument{
+		Name:         "pack-dir",
+		Description:  "Additional search root for function packs.",
+		ExpectsValue: true,
+		DefaultValue: "",
+	})
+	args.Register(args.Argument{
+		Name:        "update-packs",
+		Description: "Re-resolve all imported pack versions and regenerate cherri.lock.",
+	})
 
 	for _, actionCat := range actionIncludes {
 		actionCategories = append(actionCategories, actionCat)
@@ -146,6 +166,12 @@ func init() {
 	args.Register(args.Argument{
 		Name:         "subcat",
 		Description:  "Filter action documentation category by subcategory.",
+		DefaultValue: "",
+		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:         "docs-pack",
+		Description:  "Generate documentation for a specific function pack by ID.",
 		DefaultValue: "",
 		ExpectsValue: true,
 	})

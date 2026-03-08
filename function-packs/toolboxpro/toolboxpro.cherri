@@ -1,0 +1,20 @@
+// [Doc]: [Lists] Combine Lists: Combines two or more lists into one.
+action 'is.toolboxpro.toolboxpro.combinelists' tbpCombineLists(list firstList, list secondList): list
+
+// [Doc]: [Lists] Filter Lists: Filters items in a list based on a condition.
+action 'is.toolboxpro.toolboxpro.filterlists' tbpFilterLists(list input): list
+
+// [Doc]: [Lists] Pick From List: Presents a picker for selecting one or more items from a list.
+action 'is.toolboxpro.toolboxpro.pickfromlist' tbpPickFromList(list input, text prompt?): list
+
+// [Doc]: [Variables] Get Variable: Gets the value of a named Toolbox Pro variable.
+action 'is.toolboxpro.toolboxpro.getvariable' tbpGetVariable(text name)
+
+// [Doc]: [Variables] Set Variable: Sets a named Toolbox Pro variable to a value.
+action 'is.toolboxpro.toolboxpro.setvariable' tbpSetVariable(text name, text value)
+
+// [Doc]: [Variables] Remove Variable: Removes a named Toolbox Pro variable.
+action 'is.toolboxpro.toolboxpro.removevariable' tbpRemoveVariable(text name)
+
+// [Doc]: [Tables] Create Table: Creates a table from a list of rows and columns.
+action 'is.toolboxpro.toolboxpro.createtable' tbpCreateTable(list rows, list columns): text

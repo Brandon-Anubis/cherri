@@ -56,7 +56,7 @@ func main() {
 		os.Exit(0)
 	}
 
-	if args.Using("docs") {
+	if args.Using("docs") || args.Using("docs-pack") {
 		generateDocs()
 		os.Exit(0)
 	}
@@ -108,6 +108,16 @@ func main() {
 
 	if args.Using("glyph") {
 		handleGlyphSearch()
+		os.Exit(0)
+	}
+
+	if args.Using("list-packs") {
+		listInstalledPacks()
+		os.Exit(0)
+	}
+
+	if args.Using("pack-info") && args.Value("pack-info") != "" {
+		packInfoByID(args.Value("pack-info"))
 		os.Exit(0)
 	}
 

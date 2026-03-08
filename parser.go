@@ -104,6 +104,8 @@ func initParse() {
 	groupingIdx = 0
 	includes = []include{}
 
+	updateLockFile(args.Using("update-packs"))
+
 	if args.Using("debug") {
 		fmt.Println(ansi("Done.", green) + "\n")
 	}
