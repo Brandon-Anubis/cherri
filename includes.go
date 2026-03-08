@@ -167,25 +167,28 @@ func parsePack() {
 	case tokenAhead(GreaterOrEqual):
 		op = ">="
 		skipWhitespace()
-		if char == '\'' {
-			advance()
-			version = collectRawString()
+		if char != '\'' {
+			parserError(fmt.Sprintf("Expected version string after >= in #pack '%s'", packID))
 		}
+		advance()
+		version = collectRawString()
 	case tokenAhead(Is):
 		op = "=="
 		skipWhitespace()
-		if char == '\'' {
-			advance()
-			version = collectRawString()
+		if char != '\'' {
+			parserError(fmt.Sprintf("Expected version string after == in #pack '%s'", packID))
 		}
+		advance()
+		version = collectRawString()
 	default:
 		skipWhitespace()
-		if tokenAhead("as") {
+		if tokenAhead(tokenType("as")) {
 			skipWhitespace()
-			if char == '\'' {
-				advance()
-				alias = collectRawString()
+			if char != '\'' {
+				parserError(fmt.Sprintf("Expected alias string after 'as' in #pack '%s'", packID))
 			}
+			advance()
+			alias = collectRawString()
 		}
 	}
 

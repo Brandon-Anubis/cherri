@@ -240,8 +240,8 @@ func TestFindPackByShortcutIdentifier(t *testing.T) {
 		t.Errorf("functionName: got %q, want %q", funcName, "exFoo")
 	}
 
-	_, _, notFound := findPackByShortcutIdentifier("com.unknown.action")
-	if notFound {
+	_, _, notFoundResult := findPackByShortcutIdentifier("com.unknown.action")
+	if notFoundResult {
 		t.Error("expected lookup to fail for unknown identifier")
 	}
 }

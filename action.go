@@ -773,7 +773,7 @@ func appIntentDescriptor(intent appIntent) map[string]any {
 
 // handleActionDefinitions parses defined actions in the current file and collects them into the actions map.
 func handleActionDefinitions() {
-	if !regexp.MustCompile(`(?m)^action `).MatchString(contents) && !regexp.MustCompile(`enum (.*?) \{`).MatchString(contents) {
+	if !actionDefinitionRegex.MatchString(contents) && !enumDefinitionRegex.MatchString(contents) {
 		return
 	}
 	parseActionDefinitions()
@@ -877,6 +877,8 @@ func collectAdditionalParams() (function paramsFunc) {
 }
 
 var docCommentRegex = regexp.MustCompile(`^\[Doc]: ?(?:\[(.*?)])?\s(.*?)?(?:: (.*?))?$`)
+var actionDefinitionRegex = regexp.MustCompile(`(?m)^action `)
+var enumDefinitionRegex = regexp.MustCompile(`enum (.*?) \{`)
 
 func checkDocComment() (doc selfDoc) {
 	var lastToken = getLastAddedToken()
