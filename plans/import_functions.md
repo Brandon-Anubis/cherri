@@ -34,7 +34,8 @@ For each pack: validate schema, resolve referenced files, and build in-memory in
 - `packByID`,
 - `actionToPack` (function identifier -> pack),
 - `shortcutIdentifierToPackAction` (full workflow identifier -> pack/function).
-Registry load must be deterministic (stable sort by path + pack id) and fail-fast on invalid manifest.
+Registry load must be deterministic (stable sort by path + pack id).
+Invalid discovered packs should be marked unusable and surfaced via diagnostics, but only packs explicitly imported by the current source file (or explicitly requested via CLI) should hard-fail the command.
 ### 3) Add explicit source-level imports for packs
 Introduce a new directive, `#import 'pack-id'` (or equivalent), parsed during pre-processing before action calls are validated.
 Implementation touchpoints:
