@@ -59,6 +59,10 @@ reproduce it and what environment it may be isolated to are clearly communicated
 - If you change how a feature works, modify the existing feature or add a new feature, add or update a related file in the tests folder to add to the commit checks.
 - Test your feature or bug fix by writing a Cherri file and checking that it compiles to a valid Shortcut. If you are on
   a non-macOS platform, ensure you use the `--hubsign` option to test the Shortcut signs successfully.
+- Use `go test` to test Cherri using one of the following test names:
+  - **macOS:** `go test -run TestCherri` Runs all Cherri code tests in the `/tests/` directory.
+  - **Linux, other:** `go test -run TestCherriNoSign` Runs all Cherri code tests, but skips signing the produced Shortcuts.
+  - **All platforms:** `go test -run TestDecomp` Runs a decompilation test.
 - Squash commits when doing fixups so that if you remove something, you don't have a commit where you created it
   and then another commit where you remove it, and squash them together so that whatever ended up not being needed is also
   removed from the commit history.
@@ -91,6 +95,18 @@ reproduce it and what environment it may be isolated to are clearly communicated
 - Be honest when you don't know something and ask questions, no one is expecting you to "sound
   smart" or pretend to know everything.
 - If for some reason you need to specify a unit of measurement please add the alternative as well (e.g. in/cm).
+
+## AI policy
+
+Read and review everything you submit as a comment or code that is by AI.
+
+Use AI as a tool to get work done faster, not to do work you don't understand.
+
+Ensure your model has proper context of the project and code base. Provide Cherri documentation as context. Include the website URL for it to fetch pages from or clone the site repo which is mostly markdown which will likely be easier for it to search and likely uses less tokens.
+
+Any AI model that will assist in contributing to this project must read this document.
+
+I think of it as the same as any non-AI code generation, copy-paste, etc. to get stuff done; Don't submit stuff you don't understand as it will be obvious and may be rejected.
 
 ## Burnout
 

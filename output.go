@@ -8,32 +8,53 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/electrikmilk/args-parser"
+	"howett.net/plist"
 )
 
-// writeFile writes plist in bytes to filename.
-func writeFile(filename string, debug string) {
-	var writeDebugOutput = args.Using("debug")
-	if writeDebugOutput {
-		fmt.Printf("Writing to %s...", debug)
+func getOutputPath(name string) string {
+	if args.Using("output") && args.Value("output") != "" {
+		var outputPathArg = args.Value("output")
+		var outputPathEnding = end(strings.Split(outputPathArg, "/"))
+
+		if !strings.Contains(outputPathEnding, ".") {
+			var outputPathInfo, outputPathErr = os.Stat(outputPathArg)
+			if os.IsNotExist(outputPathErr) {
+				exit(fmt.Sprintf("Output path '%s' does not exist!", outputPathArg))
+			}
+			if outputPathInfo.IsDir() {
+				if outputPathArg[len(outputPathArg)-1] != '/' {
+					outputPathArg = fmt.Sprintf("%s/", outputPathArg)
+				}
+				return fmt.Sprintf("%s%s", outputPathArg, name)
+			}
+		}
+
+		var relativeOutputPath = strings.Replace(outputPathArg, outputPathEnding, "", 1)
+		if _, err := os.Stat(relativeOutputPath); os.IsNotExist(err) {
+			exit(fmt.Sprintf("Output path '%s' does not exist!", relativeOutputPath))
+		}
+
+		return outputPathArg
 	}
 
-	writeErr := os.WriteFile(filename, []byte(compiled), 0600)
-	handle(writeErr)
-
-	if writeDebugOutput {
-		fmt.Println(ansi("Done.", green))
+	if relativePath == "" {
+		return name
 	}
+
+	return fmt.Sprintf("%s%s", relativePath, name)
 }
 
 // createShortcut writes the Shortcut files to disk and signs them if the unsigned argument is not unused.
 func createShortcut() {
-	var path = fmt.Sprintf("%s%s", relativePath, workflowName)
+	outputPath = getOutputPath(workflowName + ".shortcut")
+	var relativeFile = fmt.Sprintf("%s%s", relativePath, workflowName)
 	if args.Using("debug") {
-		writeFile(path+".plist", workflowName+".plist")
+		writeShortcut(relativeFile+".plist", workflowName+".plist")
 	}
-	writeFile(path+unsignedEnd, workflowName+unsignedEnd)
+	writeShortcut(relativeFile+unsignedEnd, workflowName+unsignedEnd)
 
 	inputPath = fmt.Sprintf("%s%s%s", relativePath, workflowName, unsignedEnd)
 
@@ -45,7 +66,7 @@ func createShortcut() {
 				url:  args.Value("signing-server"),
 			})
 		case args.Using("hubsign"):
-			hubSign()
+			useHubSign()
 		default:
 			sign()
 		}
@@ -55,6 +76,30 @@ func createShortcut() {
 		if args.Using("open") {
 			openShortcut()
 		}
+	}
+}
+
+// writeShortcut encodes shortcut by writing plist data at path.
+func writeShortcut(path string, debug string) {
+	var writeDebugOutput = args.Using("debug")
+	if writeDebugOutput {
+		fmt.Printf("Writing to %s...", debug)
+	}
+
+	var unsignedFile, unsignedFileErr = os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	handle(unsignedFileErr)
+	defer unsignedFile.Close()
+
+	var plistEncoder = plist.NewEncoder(unsignedFile)
+	if args.Using("debug") {
+		plistEncoder.Indent("\t")
+	}
+
+	var encodeErr = plistEncoder.Encode(shortcut)
+	handle(encodeErr)
+
+	if writeDebugOutput {
+		fmt.Println(ansi("Done.", green))
 	}
 }
 

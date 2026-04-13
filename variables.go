@@ -5,12 +5,14 @@
 package main
 
 import (
+	"crypto/sha1"
 	"fmt"
 	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/electrikmilk/args-parser"
+	"github.com/google/uuid"
 )
 
 var variables map[string]varValue
@@ -34,7 +36,7 @@ var globals = map[string]varValue{
 	},
 	"CurrentDate": {
 		variableType: "CurrentDate",
-		valueType:    Date,
+		valueType:    String,
 		value:        "CurrentDate",
 	},
 	"Clipboard": {
@@ -59,7 +61,7 @@ var globals = map[string]varValue{
 	},
 	"RepeatIndex": {
 		variableType: "Variable",
-		valueType:    String,
+		valueType:    Integer,
 		value:        "Repeat Index",
 	},
 }
@@ -81,6 +83,19 @@ func availableIdentifier(identifier *string) {
 	}
 }
 
+func createUUIDReference(identifier string) string {
+	var actionUUID = createUUID(&identifier)
+	uuids[identifier] = actionUUID
+
+	return actionUUID
+}
+
+func wrapVariableReference(s *string) {
+	if validReference(*s) {
+		*s = fmt.Sprintf("{%s}", *s)
+	}
+}
+
 func validReference(identifier string) bool {
 	if _, found := globals[identifier]; found {
 		isInputVariable(identifier)
@@ -91,6 +106,35 @@ func validReference(identifier string) bool {
 	}
 
 	return false
+}
+
+func validGlobalReference(identifier *string) bool {
+	if _, found := globals[*identifier]; found {
+		isInputVariable(*identifier)
+		return true
+	}
+
+	return false
+}
+
+// Checks if identifier is a variable that is not a constant.
+func validActionReference(identifier *string) bool {
+	if v, found := variables[*identifier]; found {
+		if !v.constant {
+			parserError(fmt.Sprintf("Unknown reference '%s'. Variable references must be prepended with @.", *identifier))
+		}
+		return true
+	}
+
+	return false
+}
+
+// Checks if identifier is a variable that is not a constant.
+func validVariableReference(identifier *string) bool {
+	if v, found := variables[*identifier]; !found || v.constant {
+		return false
+	}
+	return true
 }
 
 func getVariableValue(identifier string) (variableValue *varValue, found bool) {
@@ -172,4 +216,31 @@ func duplicateOutputName() string {
 	currentOutputName = fmt.Sprintf("%s%d", currentOutputName, duplicateDelta)
 
 	return currentOutputName
+}
+
+func createUUID(salt *string) string {
+	var deterministic = args.Using("derive-uuids")
+	if deterministic {
+		var seeds = [][]byte{
+			[]byte(workflowName),
+			[]byte(*salt),
+		}
+		return deterministicUUID(seeds...)
+	}
+
+	return uuid.New().String()
+}
+
+// deterministicUUID returns a UUID derived from the given pieces.
+func deterministicUUID(pieces ...[]byte) string {
+	var hash = sha1.New()
+	for i, piece := range pieces {
+		if i > 0 {
+			hash.Write([]byte{0x00})
+		}
+		hash.Write(piece)
+	}
+	var seed = hash.Sum(nil)
+
+	return uuid.NewSHA1(uuid.NameSpaceURL, seed).String()
 }

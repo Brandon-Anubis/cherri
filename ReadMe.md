@@ -1,8 +1,8 @@
-<img src="https://github.com/electrikmilk/cherri/blob/main/assets/cherri_icon.png" width="200"/>
+<img width="200" height="200" alt="Cherri Icon" src="https://github.com/user-attachments/assets/a9c23532-a1df-41ec-bd5b-6621f54064c8" />
 
 # Cherri
 
-[![Build & Test](https://github.com/electrikmilk/cherri/actions/workflows/go.yml/badge.svg)](https://github.com/electrikmilk/cherri/actions/workflows/go.yml)
+[![Build & Test](https://github.com/electrikmilk/cherri/actions/workflows/build-test.yml/badge.svg)](https://github.com/electrikmilk/cherri/actions/workflows/build-test.yml)
 [![Releases](https://img.shields.io/github/v/release/electrikmilk/cherri?include_prereleases)](https://github.com/electrikmilk/cherri/releases)
 [![Go](https://img.shields.io/github/go-mod/go-version/electrikmilk/cherri)](https://github.com/electrikmilk/cherri/blob/main/go.mod)
 [![License](https://img.shields.io/github/license/electrikmilk/cherri)](https://github.com/electrikmilk/cherri/blob/main/LICENSE)
@@ -12,21 +12,25 @@
 
 **Cherri** (pronounced cherry) is a [Shortcuts](https://apps.apple.com/us/app/shortcuts/id1462947752) programming language that compiles directly to a valid runnable Shortcut.
 
-The primary goal is to make it trivial and practical to create large Shortcut projects (within the limits of Shortcuts) and maintain them over the long term.
+The primary goal is to make it practical to create large Shortcut projects (within the limitations of Shortcuts) and maintain them long term.
 
-[![Hello World Example](https://github.com/electrikmilk/cherri/blob/main/assets/hello_world.png)](https://playground.cherrilang.org)
+[![Hello World Example](https://github.com/user-attachments/assets/dc2ce82e-f85e-44ab-9f43-50f9518ddcda)](https://playground.cherrilang.org)
 
 ### 🌟 Top Features
 
 - 🖥️ Laptop/Desktop-based development (CLI, [VSCode extension](https://marketplace.visualstudio.com/items?itemName=electrikmilk.cherri-vscode-extension), macOS app)
 - 🎓 Easy to learn and syntax similar to other languages
 - 🐞 1-1 translation to Shortcut actions as much as possible to make debugging easier
+- 🥾 Half-bootstrapped: Most actions and types are written in the language
+- 💻 Import actions on your Mac
+- 📦 Package manager: Remote Git repo-based package manager built in, allowing for automatic inclusion and updates.
 - 🪄 No magic variables syntax, they're constants instead
 - 🪶 Optimized to create as small as possible Shortcuts and reduce memory usage at runtime
 - #️⃣ Include files within others for large Shortcut projects
-- 🔧 Define custom actions with type checking, enums, optionals, default values, raw identifiers, and raw keys.
+- 🔧 Define actions with type checking, enums, optionals, default values, raw identifiers, and raw keys.
+- 🔄 Define functions to run within their own scope at the top of your Shortcut to reduce duplicate actions.
 - 📋 Copy-paste actions automatically
-- 🥩 Enter actions raw with custom identifier and parameters.
+- 🥩 Enter action identifier and parameters manually using Raw Actions.
 - ❓ Define import questions
 - 📇 Generate VCards for menus
 - 📄 Embed files in base64
@@ -42,6 +46,51 @@ The primary goal is to make it trivial and practical to create large Shortcut pr
 - 📄 [Documentation](https://cherrilang.org/language/) - Learn Cherri or how to contribute
 - 🔍 [Glyph Search](https://glyphs.cherrilang.org/) - Search glyphs you can use in Cherri!
 - ❓ [FAQ](https://cherrilang.org/faq)
+
+## Installation
+
+You can install Cherri by downloading the latest release or via the Homebrew or Nix package managers:
+
+### Install via Homebrew
+
+If you have Homebrew installed, you can run:
+
+**Add Tap:**
+
+```console
+brew tap electrikmilk/cherri
+```
+
+**Install:**
+
+```console
+brew install electrikmilk/cherri/cherri
+```
+
+### Install via Nix
+
+If you have Nix installed, you can run:
+
+```bash
+nix profile install github:electrikmilk/cherri
+```
+
+Alternatively, you can use `nix-direnv` to get an isolated, [effortless dev environment](https://determinate.systems/blog/nix-direnv/) where `cherri` is available based on which directory you're in. Then you would use_flake and add Cherri to flake.nix:
+
+```nix
+{
+  inputs.cherri.url = "github:electrikmilk/cherri";
+
+
+  { # outputs.packages.${system}.default = pkgs.mkShell etc - omitted for brevity
+    buildInputs = [
+      inputs.cherri.packages.${system}.cherri
+    ]
+  }
+}
+```
+
+Then run `direnv allow` in the directory with the flake.nix file.
 
 ## Usage
 
@@ -63,7 +112,8 @@ Plus, some stability comes with this project being on macOS and not iOS, and I'm
 
 ## Community
 
-- [VS Code Syntax Highlighting](https://marketplace.visualstudio.com/items?itemName=erenyenigul.cherri) ([repo](https://github.com/erenyenigul/cherri-vscode-highlight))
+- [VS Code Syntax Highlighting](https://marketplace.visualstudio.com/items?itemName=electrikmilk.cherri-vscode-extension) ([repo](https://github.com/electrikmilk/cherri-vscode))
+- [Zed Editor](https://github.com/videah/zed-cherri)
 
 ## Credits
 

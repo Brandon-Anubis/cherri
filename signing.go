@@ -12,9 +12,11 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"slices"
 	"time"
 
 	"github.com/electrikmilk/args-parser"
+	"howett.net/plist"
 )
 
 var signFailed = false
@@ -56,6 +58,10 @@ func sign() {
 
 		useHubSign()
 	}
+
+	if args.Using("debug") {
+		fmt.Println(ansi("Done.", green))
+	}
 }
 
 func useHubSign() {
@@ -71,14 +77,7 @@ type SigningService struct {
 
 // Sign the Shortcut using a signing service.
 func useSigningService(service *SigningService) {
-	if signingServiceFailed {
-		fmt.Println(ansi(fmt.Sprintf("Backing off from %s", service.name), red))
-		for i := 5; i > 0; i-- {
-			fmt.Printf("%d seconds...\r", i)
-			time.Sleep(1 * time.Second)
-		}
-		fmt.Print("\n\n")
-	}
+	handleBackoff(service)
 
 	if !args.Using("no-ansi") {
 		fmt.Println(ansi(fmt.Sprintf("Signing using %s service...", service.name), green))
@@ -87,9 +86,41 @@ func useSigningService(service *SigningService) {
 		}
 	}
 
+	var signedShortcut = requestSignedShortcut(service)
+	if len(signedShortcut) == 0 {
+		return
+	}
+
+	if !looksLikeSignedShortcut(signedShortcut) {
+		exit("Signing server response does not look like a Shortcut file.")
+	}
+
+	var writeErr = os.WriteFile(outputPath, signedShortcut, 0600)
+	handle(writeErr)
+
+	if args.Using("debug") {
+		fmt.Println(ansi("Done.", green))
+	}
+}
+
+func handleBackoff(service *SigningService) {
+	if signingServiceFailed {
+		fmt.Println(ansi(fmt.Sprintf("Backing off from %s", service.name), red))
+		for i := 5; i > 0; i-- {
+			fmt.Printf("%d seconds...\r", i)
+			time.Sleep(1 * time.Second)
+		}
+		fmt.Print("\n\n")
+	}
+}
+
+func requestSignedShortcut(service *SigningService) []byte {
+	var marshaledPlist, plistErr = plist.Marshal(shortcut, plist.XMLFormat)
+	handle(plistErr)
+
 	var payload = map[string]string{
 		"shortcutName": basename,
-		"shortcut":     compiled,
+		"shortcut":     string(marshaledPlist),
 	}
 	var jsonPayload, jsonErr = json.Marshal(payload)
 	handle(jsonErr)
@@ -97,17 +128,26 @@ func useSigningService(service *SigningService) {
 	var request, httpErr = http.NewRequest("POST", service.url, bytes.NewReader(jsonPayload))
 	handle(httpErr)
 	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("User-Agent", fmt.Sprintf("cherri/%s", version))
 
-	var client = &http.Client{}
-	response, resErr := client.Do(request)
+	var client = &http.Client{
+		Timeout: time.Second * 30,
+	}
+	var response, resErr = client.Do(request)
 	handle(resErr)
 	defer response.Body.Close()
+
+	var responseContentType = response.Header.Get("Content-Type")
+	var allowedContentTypes = []string{"application/octet-stream", "application/x-plist", "application/x-apple-shortcut"}
+	if !slices.Contains(allowedContentTypes, responseContentType) {
+		exit(fmt.Sprintf("Unsupported response type: %s", responseContentType))
+	}
 
 	if response.StatusCode != http.StatusOK {
 		signingServiceFailed = true
 		backoff += 10
 		fmt.Println(ansi(fmt.Sprintf("Failed to sign Shortcut (%s)", response.Status), red))
-		return
+		return []byte{}
 	}
 
 	signingServiceFailed = false
@@ -121,12 +161,15 @@ func useSigningService(service *SigningService) {
 	var body, readErr = io.ReadAll(response.Body)
 	handle(readErr)
 
-	var writeErr = os.WriteFile(outputPath, body, 0600)
-	handle(writeErr)
+	return body
+}
 
-	if args.Using("debug") {
-		fmt.Println(ansi("Done.", green))
+// looksLikeSignedShortcut performs quick checks to makeParams sure response is a signed Shortcut.
+func looksLikeSignedShortcut(buffer []byte) bool {
+	if len(buffer) >= 4 && string(buffer[:4]) == "AEA1" {
+		return true
 	}
+	return false
 }
 
 func removeUnsigned() {
@@ -143,7 +186,7 @@ func removeUnsigned() {
 		fmt.Printf("Removing %s%s...", workflowName, unsignedEnd)
 	}
 
-	removeErr := os.Remove(inputPath)
+	var removeErr = os.Remove(inputPath)
 	handle(removeErr)
 
 	if args.Using("debug") {

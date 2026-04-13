@@ -32,6 +32,10 @@ func init() {
 		Description: "Create plist file, preprocessed file, print debug and stack traces.",
 	})
 	args.Register(args.Argument{
+		Name:        "derive-uuids",
+		Description: "Output deterministic UUIDs.",
+	})
+	args.Register(args.Argument{
 		Name:         "output",
 		Short:        "o",
 		Description:  "Set custom output file path.",
@@ -51,6 +55,53 @@ func init() {
 		Name:         "import",
 		Description:  "[BETA] Import Shortcut from an iCloud link or file path and convert to Cherri.",
 		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:         "init",
+		Description:  "Create a Cherri package. Pattern: @{author}/{package_name} | https://{uri}/{author}/cherri-{package_name}",
+		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:         "add-uri",
+		Description:  "Add remote Git repository URI to current package. (e.g. github.com, etc.)",
+		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:         "install",
+		Description:  "Install a package.",
+		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:         "remove",
+		Description:  "Remove a package.",
+		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:        "package",
+		Description: "List package info.",
+	})
+	args.Register(args.Argument{
+		Name:        "packages",
+		Description: "List installed packages.",
+	})
+	args.Register(args.Argument{
+		Name:        "tidy",
+		Description: "Re-install all packages.",
+	})
+	args.Register(args.Argument{
+		Name:         "toolkit",
+		Description:  "Path to Shortcuts ToolKit SQLite database.",
+		ExpectsValue: true,
+	})
+	args.Register(args.Argument{
+		Name:         "toolkit-locale",
+		Description:  "Set custom locale to get action data for.",
+		ExpectsValue: true,
+		DefaultValue: "en",
+	})
+	args.Register(args.Argument{
+		Name:        "no-toolkit",
+		Description: "Do not use the Shortcuts toolkit DB to decompile non-standard actions.",
 	})
 	args.Register(args.Argument{
 		Name:         "signing-server",

@@ -7,6 +7,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -33,10 +34,6 @@ func handleIncludes() {
 	parseIncludes()
 
 	if args.Using("debug") {
-		printIncludesDebug()
-	}
-
-	if args.Using("debug") {
 		fmt.Println(ansi("Done.", green) + "\n")
 	}
 }
@@ -49,9 +46,11 @@ func parseIncludes() {
 	includedFile = false
 	for char != -1 {
 		switch {
-		case isChar('/'):
+		case char == '"':
+			collectString()
+			advanceUntil('\n')
+		case commentAhead():
 			collectComment()
-			continue
 		case tokenAhead(Include):
 			advance()
 			parseInclude()
@@ -92,6 +91,8 @@ func parseInclude() {
 	advance()
 
 	var includePath = collectIncludePath()
+
+	handlePackageIncludePath(&includePath)
 
 	if slices.Contains(included, includePath) {
 		parserError(fmt.Sprintf("Path '%s' has already been included.", includePath))
@@ -134,6 +135,20 @@ func parseInclude() {
 	included = append(included, includePath)
 }
 
+var packageIncludeRegex = regexp.MustCompile("packages/@(.*?)/(.*?)/")
+
+// handlePackageIncludePath resolves internal package includes.
+func handlePackageIncludePath(includePath *string) {
+	if inc, found := insideInclude("packages/@"); found {
+		var matches = packageIncludeRegex.FindAllStringSubmatch(inc.file, -1)
+		if len(matches) != 0 {
+			var userName = matches[0][1]
+			var packageName = matches[0][2]
+			*includePath = fmt.Sprintf("packages/@%s/%s/%s", userName, packageName, *includePath)
+		}
+	}
+}
+
 // updateIncludesMap checks if an included file starts on `line`.
 // If so, it updates its start and end lines to account for the included file it overlaps with.
 func updateIncludesMap(line int, includeLines int) {
@@ -153,21 +168,50 @@ func delinquentFile() (errorFilename string, errorLine int, errorCol int) {
 	if len(includes) == 0 {
 		return
 	}
+
+	var currentLine = lines[lineIdx]
+	var found bool
 	for _, inc := range includes {
-		if lineIdx+1 <= inc.start && lineIdx+1 >= inc.end {
+		if errorLine <= inc.start || errorLine >= inc.end {
 			continue
 		}
 		errorFilename = inc.file
+
 		for l, line := range inc.lines {
-			if lineIdx > len(lines) {
-				continue
-			}
-			if line == lines[lineIdx] {
+			if line == currentLine {
 				errorLine = l + 1
+				found = true
+				break
 			}
 		}
 	}
+
+	if !found {
+		findOriginalLine(&errorLine)
+	}
+
 	return
+}
+
+func findOriginalLine(errorLine *int) {
+	for l, line := range strings.Split(originalContents, "\n") {
+		if line == lines[lineIdx] {
+			*errorLine = l
+		}
+	}
+}
+
+// insideInclude returns a boolean based on if we are within an included file with a name that contains needle.
+func insideInclude(needle string) (inc *include, inside bool) {
+	for _, inc := range includes {
+		if !strings.Contains(inc.file, needle) || lineIdx+1 < inc.start || lineIdx+1 > inc.end {
+			continue
+		}
+
+		return &inc, true
+	}
+
+	return nil, false
 }
 
 func printIncludesDebug() {

@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/electrikmilk/args-parser"
 	"github.com/google/uuid"
 )
 
@@ -47,80 +48,6 @@ var createShortcutiCloudLink = appIntent{
 // The key determines the identifier of the identifier that must be used in the syntax, it's value defines its behavior, etc. using an actionDefinition.
 var actions = map[string]*actionDefinition{
 	"returnToHomescreen": {nonMacOnly: true},
-	"adjustDate": {
-		doc: selfDoc{
-			title:       "Adjust Date",
-			description: "Adjust a date or get the start of a time period.",
-			category:    "calendar",
-			subcategory: "Dates",
-		},
-		identifier: "adjustdate",
-		parameters: []parameterDefinition{
-			{
-				name:      "date",
-				key:       "WFDate",
-				validType: String,
-			},
-			{
-				name:      "operation",
-				key:       "WFAdjustOperation",
-				validType: String,
-				enum:      "dateOperation",
-			},
-			{
-				name:      "magnitude",
-				validType: Integer,
-				optional:  true,
-			},
-			{
-				name:      "unit",
-				validType: String,
-				enum:      "dateUnit",
-				optional:  true,
-			},
-		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) != 4 {
-				return map[string]any{}
-			}
-
-			var unit = getArgValue(args[3])
-
-			return map[string]any{
-				"WFDuration": magnitudeValue(unit, args, 2),
-			}
-		},
-	},
-	"startTimer": {
-		doc: selfDoc{
-			title:       "Create Timer",
-			description: "Creates a new timer.",
-			category:    "calendar",
-			subcategory: "Timers",
-		},
-		identifier: "timer.start",
-		parameters: []parameterDefinition{
-			{
-				name:      "magnitude",
-				validType: Integer,
-			},
-			{
-				name:         "unit",
-				validType:    String,
-				defaultValue: "min",
-				enum:         "timerDuration",
-			},
-		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) == 0 {
-				return map[string]any{}
-			}
-
-			return map[string]any{
-				"WFDuration": magnitudeValue(argumentValue(args, 1), args, 0),
-			}
-		},
-	},
 	"createAlarm": {
 		doc: selfDoc{
 			title:       "Create Alarm",
@@ -171,7 +98,7 @@ var actions = map[string]*actionDefinition{
 				}
 			}
 		},
-		addParams: func(args []actionArgument) (params map[string]any) {
+		appendParams: func(args []actionArgument) (params map[string]any) {
 			if len(args) < 4 {
 				return
 			}
@@ -246,10 +173,8 @@ var actions = map[string]*actionDefinition{
 				optional:     true,
 			},
 		},
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"state": 1,
-			}
+		setParams: map[string]any{
+			"state": 1,
 		},
 		defaultAction: true,
 	},
@@ -277,10 +202,8 @@ var actions = map[string]*actionDefinition{
 				optional:     true,
 			},
 		},
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"state": 0,
-			}
+		setParams: map[string]any{
+			"state": 0,
 		},
 	},
 	"toggleAlarm": {
@@ -305,10 +228,8 @@ var actions = map[string]*actionDefinition{
 			},
 		},
 		appIntent: toggleAlarmIntent,
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"operation": "Toggle",
-			}
+		setParams: map[string]any{
+			"operation": "Toggle",
 		},
 	},
 	"emailAddress": {
@@ -331,7 +252,7 @@ var actions = map[string]*actionDefinition{
 				parserError("Shortcuts only allows one variable for an email address.")
 			}
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			if args[0].valueType == Variable {
 				return map[string]any{
 					"WFEmailAddress": argumentValue(args, 0),
@@ -365,7 +286,7 @@ var actions = map[string]*actionDefinition{
 				parserError("Shortcuts only allows one variable for a phone number.")
 			}
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			if args[0].valueType == Variable {
 				return map[string]any{
 					"WFPhoneNumber": argumentValue(args, 0),
@@ -424,7 +345,7 @@ var actions = map[string]*actionDefinition{
 				optional:     true,
 			},
 		},
-		addParams: func(args []actionArgument) (params map[string]any) {
+		appendParams: func(args []actionArgument) (params map[string]any) {
 			params = make(map[string]any)
 			if len(args) >= 3 {
 				if args[2].valueType == Variable {
@@ -465,10 +386,8 @@ var actions = map[string]*actionDefinition{
 				enum:      "contactDetails",
 			},
 		},
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"Mode": "Remove",
-			}
+		setParams: map[string]any{
+			"Mode": "Remove",
 		},
 	},
 	"labelFile": {
@@ -492,7 +411,7 @@ var actions = map[string]*actionDefinition{
 				enum:      "fileLabel",
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) == 0 {
 				return map[string]any{}
 			}
@@ -539,7 +458,7 @@ var actions = map[string]*actionDefinition{
 				optional:  true,
 			},
 		},
-		addParams: func(args []actionArgument) (params map[string]any) {
+		appendParams: func(args []actionArgument) (params map[string]any) {
 			if len(args) == 0 {
 				return map[string]any{}
 			}
@@ -592,7 +511,7 @@ var actions = map[string]*actionDefinition{
 				optional:  true,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) == 0 {
 				return map[string]any{}
 			}
@@ -699,7 +618,7 @@ var actions = map[string]*actionDefinition{
 				optional:     true,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) == 0 {
 				return map[string]any{}
 			}
@@ -747,9 +666,9 @@ var actions = map[string]*actionDefinition{
 				defaultValue: "\n",
 			},
 		},
-		addParams:  textParts,
-		decomp:     decompTextParts,
-		outputType: Arr,
+		appendParams: textParts,
+		decomp:       decompTextParts,
+		outputType:   Arr,
 	},
 	"joinText": {
 		doc: selfDoc{
@@ -771,131 +690,9 @@ var actions = map[string]*actionDefinition{
 				defaultValue: "\n",
 			},
 		},
-		addParams:  textParts,
-		decomp:     decompTextParts,
-		outputType: String,
-	},
-	"makeSizedDiskImage": {
-		doc: selfDoc{
-			title:       "Make Size Disk Image",
-			description: "Make a sized disk image.",
-			category:    "mac",
-		},
-		identifier:    "makediskimage",
-		defaultAction: true,
-		parameters: []parameterDefinition{
-			{
-				name:      "name",
-				validType: String,
-				key:       "VolumeName",
-			},
-			{
-				name:      "contents",
-				validType: Variable,
-				key:       "WFInput",
-			},
-			{
-				name:         "size",
-				validType:    String,
-				defaultValue: "1 GB",
-			},
-			{
-				name:         "encrypt",
-				key:          "EncryptImage",
-				validType:    Bool,
-				defaultValue: false,
-				optional:     true,
-			},
-		},
-		check: func(args []actionArgument, _ *actionDefinition) {
-			var size = strings.Split(getArgValue(args[2]).(string), " ")
-			var storageUnitArg = actionArgument{
-				valueType: String,
-				value:     size[1],
-			}
-			checkEnum(&parameterDefinition{
-				name: "disk size",
-				enum: "storageUnit",
-			}, &storageUnitArg)
-		},
-		decomp: func(action *ShortcutAction) (arguments []string) {
-			var imageSize = ImageSize{
-				Value: SizeValue{
-					Unit:      "GB",
-					Magnitude: "1",
-				},
-			}
-			mapToStruct(action.WFWorkflowActionParameters["ImageSize"], &imageSize)
-			var size = fmt.Sprintf("\"%s %s\"", imageSize.Value.Magnitude, imageSize.Value.Unit)
-
-			return []string{
-				decompValue(action.WFWorkflowActionParameters["VolumeName"]),
-				decompValue(action.WFWorkflowActionParameters["WFInput"]),
-				size,
-				decompValue(action.WFWorkflowActionParameters["EncryptImage"]),
-			}
-		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) == 0 {
-				return map[string]any{}
-			}
-
-			var size = strings.Split(getArgValue(args[2]).(string), " ")
-
-			return map[string]any{
-				"SizeToFit": false,
-				"ImageSize": map[string]any{
-					"Value": map[string]any{
-						"Unit":      size[0],
-						"Magnitude": size[1],
-					},
-					"WFSerializationType": "WFQuantityFieldValue",
-				},
-			}
-		},
-		macOnly:    true,
-		minVersion: 15,
-	},
-	"seek": {
-		doc: selfDoc{
-			title:       "Seek",
-			description: "Seek the currently playing media.",
-			category:    "music",
-			subcategory: "Playback",
-		},
-		parameters: []parameterDefinition{
-			{
-				name:      "magnitude",
-				validType: Integer,
-			},
-			{
-				name:      "duration",
-				validType: String,
-				enum:      "timerDuration",
-			},
-			{
-				name:         "behavior",
-				key:          "WFSeekBehavior",
-				validType:    String,
-				defaultValue: "To Time",
-				enum:         "seekBehavior",
-			},
-		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) == 0 {
-				return map[string]any{}
-			}
-
-			return map[string]any{
-				"WFTimeInterval": map[string]any{
-					"Value": map[string]any{
-						"Magnitude": argumentValue(args, 0),
-						"Unit":      argumentValue(args, 1),
-					},
-					"WFSerializationType": "WFQuantityFieldValue",
-				},
-			}
-		},
+		appendParams: textParts,
+		decomp:       decompTextParts,
+		outputType:   String,
 	},
 	"url": {
 		doc: selfDoc{
@@ -911,7 +708,7 @@ var actions = map[string]*actionDefinition{
 				infinite:  true,
 			},
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			var urlItems []any
 			for _, item := range args {
 				urlItems = append(urlItems, paramValue(item, String))
@@ -939,7 +736,7 @@ var actions = map[string]*actionDefinition{
 				infinite:  true,
 			},
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			var urlItems []any
 			for _, item := range args {
 				urlItems = append(urlItems, paramValue(item, String))
@@ -987,7 +784,7 @@ var actions = map[string]*actionDefinition{
 				defaultValue: true,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) < 3 {
 				return map[string]any{}
 			}
@@ -1019,11 +816,7 @@ var actions = map[string]*actionDefinition{
 		check: func(args []actionArgument, definition *actionDefinition) {
 			replaceAppIDs(args, definition)
 		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) == 0 {
-				return map[string]any{}
-			}
-
+		appendParams: func(args []actionArgument) map[string]any {
 			if args[0].valueType == Variable {
 				return map[string]any{
 					"WFSelectedApp": argumentValue(args, 0),
@@ -1058,7 +851,7 @@ var actions = map[string]*actionDefinition{
 		check: func(args []actionArgument, definition *actionDefinition) {
 			replaceAppIDs(args, definition)
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			if args[0].valueType == Variable {
 				return map[string]any{
 					"WFApp": argumentValue(args, 0),
@@ -1091,24 +884,10 @@ var actions = map[string]*actionDefinition{
 				infinite:  true,
 			},
 		},
-		check: replaceAppIDs,
-		make: func(args []actionArgument) map[string]any {
-			if args[0].valueType != Variable {
-				return map[string]any{
-					"WFApp": argumentValue(args, 0),
-				}
-			}
-
-			return map[string]any{
-				"WFApp": map[string]any{
-					"BundleIdentifier": argumentValue(args, 0),
-				},
-			}
-		},
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"WFHideAppMode": "All Apps",
-			}
+		check:      replaceAppIDs,
+		makeParams: makeAllAppsAction,
+		setParams: map[string]any{
+			"WFHideAppMode": "All Apps",
 		},
 		decomp: func(action *ShortcutAction) (arguments []string) {
 			return decompAppAction("WFAppsExcept", action)
@@ -1132,7 +911,7 @@ var actions = map[string]*actionDefinition{
 		check: func(args []actionArgument, definition *actionDefinition) {
 			replaceAppIDs(args, definition)
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			if args[0].valueType == Variable {
 				return map[string]any{
 					"WFApp": argumentValue(args, 0),
@@ -1165,21 +944,10 @@ var actions = map[string]*actionDefinition{
 				infinite:  true,
 			},
 		},
-		check: replaceAppIDs,
-		make: func(args []actionArgument) (params map[string]any) {
-			params = make(map[string]any)
-			if args[0].valueType != Variable {
-				params["WFAppsExcept"] = apps(args)
-			} else {
-				params["WFAppsExcept"] = argumentValue(args, 0)
-			}
-
-			return
-		},
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"WFQuitAppMode": "All Apps",
-			}
+		check:      replaceAppIDs,
+		makeParams: makeAllAppsAction,
+		setParams: map[string]any{
+			"WFQuitAppMode": "All Apps",
 		},
 		decomp: func(action *ShortcutAction) (arguments []string) {
 			return decompAppAction("WFAppsExcept", action)
@@ -1203,7 +971,7 @@ var actions = map[string]*actionDefinition{
 		check: func(args []actionArgument, definition *actionDefinition) {
 			replaceAppIDs(args, definition)
 		},
-		make: func(args []actionArgument) (params map[string]any) {
+		makeParams: func(args []actionArgument) (params map[string]any) {
 			params = make(map[string]any)
 
 			params["WFAskToSaveChanges"] = false
@@ -1241,20 +1009,11 @@ var actions = map[string]*actionDefinition{
 			},
 		},
 		check: replaceAppIDs,
-		make: func(args []actionArgument) (params map[string]any) {
-			params = map[string]any{
-				"WFQuitAppMode":      "All Apps",
-				"WFAskToSaveChanges": false,
-			}
-
-			if args[0].valueType != Variable {
-				params["WFAppsExcept"] = apps(args)
-			} else {
-				params["WFAppsExcept"] = argumentValue(args, 0)
-			}
-
-			return
+		setParams: map[string]any{
+			"WFQuitAppMode":      "All Apps",
+			"WFAskToSaveChanges": false,
 		},
+		makeParams: makeAllAppsAction,
 		decomp: func(action *ShortcutAction) (arguments []string) {
 			return decompAppAction("WFAppsExcept", action)
 		},
@@ -1304,11 +1063,7 @@ var actions = map[string]*actionDefinition{
 				}
 			}
 		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) == 0 {
-				return map[string]any{}
-			}
-
+		appendParams: func(args []actionArgument) map[string]any {
 			var params = make(map[string]any)
 			if args[0].valueType == Variable {
 				params["WFPrimaryAppIdentifier"] = argumentValue(args, 0)
@@ -1360,11 +1115,7 @@ var actions = map[string]*actionDefinition{
 				validType: String,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
-			if len(args) == 0 {
-				return map[string]any{}
-			}
-
+		appendParams: func(args []actionArgument) map[string]any {
 			return map[string]any{
 				"target": map[string]any{
 					"title": argumentValue(args, 0),
@@ -1394,7 +1145,7 @@ var actions = map[string]*actionDefinition{
 				validType: Variable,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) == 0 {
 				return map[string]any{
 					"isSelf": true,
@@ -1430,7 +1181,7 @@ var actions = map[string]*actionDefinition{
 				infinite:  true,
 			},
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			var listItems []map[string]any
 			for _, item := range args {
 				listItems = append(listItems, map[string]any{
@@ -1492,7 +1243,7 @@ var actions = map[string]*actionDefinition{
 				optional:  true,
 			},
 		},
-		addParams: func(args []actionArgument) (xCallbackParams map[string]any) {
+		appendParams: func(args []actionArgument) (xCallbackParams map[string]any) {
 			if len(args) == 0 {
 				return
 			}
@@ -1552,7 +1303,7 @@ var actions = map[string]*actionDefinition{
 				optional:  true,
 			},
 		},
-		addParams: func(args []actionArgument) (params map[string]any) {
+		appendParams: func(args []actionArgument) (params map[string]any) {
 			if len(args) == 0 {
 				return map[string]any{}
 			}
@@ -1627,7 +1378,7 @@ var actions = map[string]*actionDefinition{
 				enum: unitType,
 			}, &args[2])
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) == 0 {
 				return map[string]any{
 					"isSelf": false,
@@ -1688,11 +1439,11 @@ var actions = map[string]*actionDefinition{
 
 			var unitType = value.(string)
 			checkEnum(&parameterDefinition{
-				name: "unit",
+				name: fmt.Sprintf("%s unit", unitType),
 				enum: unitType,
 			}, &args[2])
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) == 0 {
 				return map[string]any{}
 			}
@@ -1732,10 +1483,12 @@ var actions = map[string]*actionDefinition{
 			{
 				name:      "title",
 				validType: String,
+				literal:   true,
 			},
 			{
 				name:      "subtitle",
 				validType: String,
+				literal:   true,
 			},
 			{
 				name:      "base64Image",
@@ -1743,7 +1496,7 @@ var actions = map[string]*actionDefinition{
 				optional:  true,
 			},
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			var title = args[0].value.(string)
 			var subtitle = args[1].value.(string)
 			wrapVariableReference(&title)
@@ -1799,7 +1552,7 @@ var actions = map[string]*actionDefinition{
 				parserError(fmt.Sprintf("File '%s' does not exist!", file))
 			}
 		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			var file = getArgValue(args[0]).(string)
 			var bytes, readErr = os.ReadFile(file)
 			handle(readErr)
@@ -1839,10 +1592,8 @@ var actions = map[string]*actionDefinition{
 			var contactDetailKey = strings.ReplaceAll(contactDetail, " ", "")
 			currentAction.parameters[2].key = "WFContactContentItem" + contactDetailKey
 		},
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"Mode": "Set",
-			}
+		setParams: map[string]any{
+			"Mode": "Set",
 		},
 	},
 	"setFocusMode": {
@@ -1882,7 +1633,7 @@ var actions = map[string]*actionDefinition{
 				optional:  true,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			if len(args) > 0 {
 				var mode = getArgValue(args[0]).(string)
 				if fm, found := focusModes[mode]; found {
@@ -1912,7 +1663,7 @@ var actions = map[string]*actionDefinition{
 				optional:     true,
 			},
 		},
-		addParams: func(args []actionArgument) map[string]any {
+		appendParams: func(args []actionArgument) map[string]any {
 			var params = map[string]any{
 				"Operation": "Toggle",
 			}
@@ -1925,6 +1676,90 @@ var actions = map[string]*actionDefinition{
 			}
 
 			return params
+		},
+	},
+	"generateImage": {
+		doc: selfDoc{
+			title:       "Create Image using Image Playground",
+			description: "Generate an Image with a prompt using the Image Playground app.",
+			category:    "intelligence",
+			subcategory: "Image Playground",
+		},
+		appIdentifier: "com.apple.GenerativePlaygroundApp",
+		identifier:    "GenerateImageIntent",
+		parameters: []parameterDefinition{
+			{
+				name:      "prompt",
+				validType: String,
+				key:       "prompt",
+			},
+			{
+				name:      "image",
+				validType: Variable,
+				key:       "image",
+				optional:  true,
+			},
+			{
+				name:         "style",
+				validType:    String,
+				defaultValue: "animation",
+				optional:     true,
+				enum:         "imagePlaygroundStyle",
+			},
+			{
+				name:         "saveToPlayground",
+				validType:    String,
+				key:          "saveToPlayground",
+				enum:         "saveToPlaygroundBehavior",
+				defaultValue: "always",
+				optional:     true,
+			},
+		},
+		appendParams: func(args []actionArgument) map[string]any {
+			if len(args) < 3 {
+				return map[string]any{}
+			}
+
+			var title string
+			var subtitle string
+			var style = argumentValue(args, 2)
+			if args[2].valueType == String {
+				style = getArgValue(args[2])
+				switch style {
+				case "chatgpt":
+					style = "z_external_provider"
+					title = "ChatGPT"
+					subtitle = "ChatGPT"
+				case "chatgpt_oil_painting":
+					style = "z_external_provider_1"
+					title = "Oil Painting (ChatGPT)"
+					subtitle = "Oil Painting (ChatGPT)"
+				case "chatgpt_watercolor":
+					style = "z_external_provider_2"
+					title = "Watercolor (ChatGPT)"
+					subtitle = "Watercolor (ChatGPT)"
+				case "chatgpt_vector":
+					style = "z_external_provider_3"
+					title = "Vector (ChatGPT)"
+					subtitle = "Vector (ChatGPT)"
+				case "chatgpt_anime":
+					style = "z_external_provider_4"
+					title = "Anime (ChatGPT)"
+					subtitle = "Anime (ChatGPT)"
+				case "chatgpt_print":
+					style = "z_external_provider_5"
+					title = "Print (ChatGPT)"
+					subtitle = "Print (ChatGPT)"
+				}
+			}
+
+			return map[string]any{
+				"style": map[string]any{
+					"identifier": style,
+					"subtitle":   subtitle,
+					"title":      title,
+				},
+			}
 		},
 	},
 }
@@ -1972,10 +1807,7 @@ func defineRawAction() {
 				validType: Dict,
 			},
 		},
-		check: func(args []actionArgument, _ *actionDefinition) {
-			actions["rawAction"].overrideIdentifier = getArgValue(args[0]).(string)
-		},
-		make: func(args []actionArgument) map[string]any {
+		makeParams: func(args []actionArgument) map[string]any {
 			if len(args) == 1 {
 				return map[string]any{}
 			}
@@ -2013,6 +1845,7 @@ var actionIncludes = []string{
 	"dropbox",
 	"images",
 	"location",
+	"intelligence",
 	"mac",
 	"math",
 	"media",
@@ -2085,6 +1918,26 @@ func includeStandardActions() {
 }
 
 func checkMissingStandardInclude(identifier *string, parsing bool) {
+	if !parsing && !args.Using("no-toolkit") {
+		connectToolkitDB()
+		var identifiers = strings.Split(*identifier, ".")
+		identifiers = append(identifiers[:3], identifiers[4:]...)
+		var baseIdentifier = strings.Join(identifiers, ".")
+
+		var containerId, containerErr = getContainerIdByIdentifier(&baseIdentifier)
+		if containerErr == nil {
+			var containerName, containerErr = getContainerName(&containerId)
+			importActions(baseIdentifier)
+			if containerErr == nil {
+				popLine(fmt.Sprintf("#import '%s'", containerName))
+			} else {
+				popLine(fmt.Sprintf("#import '%s'", baseIdentifier))
+			}
+
+			return
+		}
+	}
+
 	for _, actionInclude := range actionIncludes {
 		if slices.Contains(included, fmt.Sprintf("actions/%s", actionInclude)) {
 			continue
@@ -2098,15 +1951,9 @@ func checkMissingStandardInclude(identifier *string, parsing bool) {
 			mapSplitActions()
 		}
 
-		var name string
-		if actions[*identifier] == nil {
-			var actionName, found = findActionByIdentifier(identifier)
-			if !found {
-				continue
-			}
-			name = actionName
-		} else {
-			name = *identifier
+		var name, nameErr = getActionNameByIdentifier(identifier)
+		if nameErr != nil {
+			continue
 		}
 
 		var includeStatement = fmt.Sprintf("#include 'actions/%s'", actionInclude)
@@ -2118,6 +1965,19 @@ func checkMissingStandardInclude(identifier *string, parsing bool) {
 		}
 	}
 	return
+}
+
+func getActionNameByIdentifier(identifier *string) (name string, err error) {
+	if actions[*identifier] == nil {
+		var actionName, found = findActionByIdentifier(identifier)
+		if !found {
+			return "", fmt.Errorf("action name for '%s' not found", *identifier)
+		}
+		name = actionName
+	} else {
+		name = *identifier
+	}
+	return name, nil
 }
 
 func findActionByIdentifier(identifier *string) (name string, found bool) {
@@ -2187,22 +2047,6 @@ func decompContactValue(action *ShortcutAction, key string, contentKit contentKi
 	return
 }
 
-func magnitudeValue(unit any, args []actionArgument, index int) map[string]any {
-	var magnitudeValue = argumentValue(args, index)
-	if reflect.TypeOf(magnitudeValue).String() == "[]map[string]any" {
-		var value = magnitudeValue.([]map[string]any)
-		magnitudeValue = value[0]
-	}
-
-	return map[string]any{
-		"Value": map[string]any{
-			"Unit":      unit,
-			"Magnitude": magnitudeValue,
-		},
-		"WFSerializationType": "WFQuantityFieldValue",
-	}
-}
-
 func textParts(args []actionArgument) map[string]any {
 	if len(args) == 0 {
 		return map[string]any{}
@@ -2218,7 +2062,7 @@ func textParts(args []actionArgument) map[string]any {
 		data["WFTextSeparator"] = "Spaces"
 	case separator == "\n":
 		data["WFTextSeparator"] = "New Lines"
-	case separator == "" && currentAction.identifier == "splitText":
+	case separator == "" && currentAction.identifier == "text.split":
 		data["WFTextSeparator"] = "Every Character"
 	default:
 		data["WFTextSeparator"] = "Custom"
@@ -2291,7 +2135,7 @@ func apps(args []actionArgument) (apps []map[string]any) {
 	return
 }
 
-var appIdentifierRegex = regexp.MustCompile(`^([A-Za-z][A-Za-z\d_]*\.)+[A-Za-z][A-Za-z\d_]*$`)
+var appIdentifierRegex = regexp.MustCompile(`^(.*?)\.(.*?)\.(.*?)$`)
 
 func replaceAppID(id string) string {
 	makeAppIds()
@@ -2317,6 +2161,22 @@ func replaceAppIDs(args []actionArgument, _ *actionDefinition) {
 			args[a].value = replaceAppID(id)
 		}
 	}
+}
+
+func makeAllAppsAction(args []actionArgument) (params map[string]any) {
+	if len(args) == 0 {
+		return map[string]any{}
+	}
+
+	params = make(map[string]any)
+
+	if args[0].valueType != Variable {
+		params["WFAppsExcept"] = apps(args)
+	} else {
+		params["WFAppsExcept"] = argumentValue(args, 0)
+	}
+
+	return
 }
 
 func decompAppAction(key string, action *ShortcutAction) (arguments []string) {
@@ -2374,10 +2234,8 @@ var toggleSetActions = map[string]actionDefinition{
 		},
 		appIdentifier: "com.apple.AccessibilityUtilities.AXSettingsShortcuts",
 		identifier:    "AXToggleBackgroundSoundsIntent",
-		addParams: func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"setting": "whenMediaIsPlaying",
-			}
+		setParams: map[string]any{
+			"setting": "whenMediaIsPlaying",
 		},
 	},
 	"AutoAnswerCalls": {
@@ -2614,10 +2472,8 @@ func defineToggleSetActions() {
 	for name, def := range toggleSetActions {
 		var docTitle = def.doc.title
 		var toggleName = fmt.Sprintf("toggle%s", name)
-		def.addParams = func(_ []actionArgument) map[string]any {
-			return map[string]any{
-				"operation": "toggle",
-			}
+		def.setParams = map[string]any{
+			"operation": "toggle",
 		}
 		if docTitle != "" {
 			def.doc.title = fmt.Sprintf("Toggle %s", docTitle)
@@ -2635,7 +2491,7 @@ func defineToggleSetActions() {
 
 		var setName = fmt.Sprintf("set%s", name)
 		def.defaultAction = true
-		def.addParams = nil
+		def.setParams = map[string]any{}
 		def.defaultAction = true
 		var setKey = "state"
 		if def.setKey != "" {

@@ -5,7 +5,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -56,17 +55,59 @@ func TestCherriNoSign(t *testing.T) {
 	TestCherri(t)
 }
 
-func TestSingleFile(_ *testing.T) {
-	currentTest = "tests/conditionals.cherri"
-	fmt.Printf("⚙️ Compiling %s...\n", ansi(currentTest, bold))
-	os.Args[1] = currentTest
-	main()
-	fmt.Print(ansi("✅  PASSED", green, bold) + "\n\n")
+func TestPackages(t *testing.T) {
+	args.Args["no-ansi"] = ""
+
+	if _, statErr := os.Stat("info.plist"); !os.IsNotExist(statErr) {
+		var removeErr = os.Remove("info.plist")
+		handle(removeErr)
+	}
+
+	if _, statErr := os.Stat("./packages"); !os.IsNotExist(statErr) {
+		var removeDirErr = os.RemoveAll("./packages")
+		handle(removeDirErr)
+	}
+
+	args.Args["init"] = "@electrikmilk/package-test"
+	initPackage()
+	delete(args.Args, "init")
+
+	args.Args["install"] = "https://github.com/electrikmilk/package-example"
+	input := []byte("y")
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = w.Write(input)
+	if err != nil {
+		t.Error(err)
+	}
+	err = w.Close()
+	if err != nil {
+		panic(err)
+	}
+
+	// Restore stdin right after the test.
+	defer func(v *os.File) { os.Stdin = v }(os.Stdin)
+	os.Stdin = r
+
+	addPackage()
+	fmt.Println("You entered:", string(input))
+	delete(args.Args, "install")
+
+	listPackage()
+
+	listPackages()
+
+	args.Args["remove"] = "@electrikmilk/package-example"
+	removePackage()
+	delete(args.Args, "remove")
 }
 
 func TestDecomp(t *testing.T) {
 	fmt.Println("Decompiling...")
-	args.Args["import"] = "tests/decomp_me.plist"
+	args.Args["import"] = "tests/decomp-me.plist"
 	decompile(importShortcut())
 
 	fmt.Println("Comparing to expected...")
@@ -82,21 +123,40 @@ func TestDecomp(t *testing.T) {
 	fmt.Print(ansi("✅  PASSED", green, bold) + "\n\n")
 }
 
-func TestActionSearch(_ *testing.T) {
-	args.Args["action"] = "replaceText"
-	actionsSearch()
-}
+func TestActionIdentifiers(t *testing.T) {
+	args.Args["no-ansi"] = ""
+	args.Args["skip-sign"] = ""
+	loadStandardActions()
 
-func TestGlyphSearch(_ *testing.T) {
-	args.Args["glyph"] = "robot"
-	glyphsSearch()
-}
+	currentTest = "tests/zz-action-identifiers.cherri"
+	os.Args[1] = currentTest
 
-func TestGlyphList(_ *testing.T) {
-	var data, jsonErr = json.Marshal(glyphs)
-	handle(jsonErr)
+	compile()
 
-	fmt.Println(string(data))
+	var expected = []string{
+		"is.workflow.actions.shortid",
+		"is.workflow.actions.two.parts",
+		"is.workflow.actions.text.match.getgroup",
+		"notion.id.CreatePageIntent",
+		"com.apple.facetime.facetime",
+	}
+
+	var actual []string
+	for _, a := range shortcut.WFWorkflowActions {
+		actual = append(actual, a.WFWorkflowActionIdentifier)
+	}
+
+	if len(actual) != len(expected) {
+		t.Fatalf("Expected %d actions, got %d: %v", len(expected), len(actual), actual)
+	}
+
+	for i, ident := range expected {
+		if actual[i] != ident {
+			t.Errorf("Action %d: got %q, want %q", i, actual[i], ident)
+		}
+	}
+
+	resetParser()
 }
 
 func compile() {
@@ -116,8 +176,7 @@ func resetParser() {
 	idx = 0
 	lineIdx = 0
 	lineCharIdx = -1
-	groupingUUIDs = map[int]string{}
-	groupingTypes = map[int]tokenType{}
+	controlFlowGroups = map[int]controlFlowGroup{}
 	groupingIdx = 0
 	variables = map[string]varValue{}
 	iconColor = -1263359489
@@ -130,12 +189,12 @@ func resetParser() {
 	definedWorkflowTypes = []string{}
 	inputs = []string{}
 	outputs = []string{}
-	noInput = WFWorkflowNoInputBehavior{}
+	noInput = map[string]any{}
 	tokens = []token{}
 	included = []string{}
 	includes = []include{}
 	workflowName = ""
 	menus = map[string][]varValue{}
 	uuids = map[string]string{}
-	customActions = map[string]*customAction{}
+	functions = map[string]*function{}
 }

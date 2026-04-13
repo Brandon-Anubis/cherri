@@ -29,7 +29,9 @@ const (
 	Definition     tokenType = "#define"
 	Question       tokenType = "#question"
 	Include        tokenType = "#include"
+	Import         tokenType = "#import"
 	Action         tokenType = "action"
+	Function       tokenType = "function"
 	Copy           tokenType = "copy"
 	Paste          tokenType = "paste"
 	Default        tokenType = "default"
@@ -75,6 +77,7 @@ const (
 	Variable    tokenType = "variable"
 	Conditional tokenType = "conditional"
 	Enumeration tokenType = "enum"
+	Quantity    tokenType = "qty"
 )
 
 /* Operators */

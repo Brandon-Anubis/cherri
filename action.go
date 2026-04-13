@@ -26,9 +26,16 @@ var stdActions embed.FS
 
 // currentAction holds the current action definition between functions.
 var currentAction actionDefinition
+var saveAction actionDefinition
+
 var currentActionIdentifier string
+var saveActionIdentifier string
+
 var currentArguments []actionArgument
+var saveArguments []actionArgument
+
 var currentArgumentsSize int
+var saveArgumentsSize int
 
 // parameterDefinition is used to define an actions parameters and to check against collected argument values.
 type parameterDefinition struct {
@@ -37,6 +44,7 @@ type parameterDefinition struct {
 	key          string
 	defaultValue any
 	enum         string
+	qty          bool
 	optional     bool
 	infinite     bool
 	literal      bool
@@ -78,9 +86,10 @@ type actionDefinition struct {
 	overrideIdentifier string
 	parameters         []parameterDefinition
 	check              checkFunc
-	make               paramsFunc
+	makeParams         paramsFunc     // makeParams overrides automatic handling of arguments for custom logic based on the arguments collected.
+	appendParams       paramsFunc     // appendParams allows for adding additional parameters based on arguments without disabling automatic handling.
+	setParams          map[string]any // setParams allows for adding additional parameters not based on arguments without affecting automatic handling.
 	decomp             func(action *ShortcutAction) (arguments []string)
-	addParams          paramsFunc
 	appIntent          appIntent
 	outputType         tokenType
 	defaultAction      bool // Default action for this identifier during decompilation.
@@ -94,18 +103,13 @@ type actionDefinition struct {
 
 var enumerations = map[string][]string{
 	"measurementUnitType":           {"Acceleration", "Angle", "Area", "Concentration Mass", "Dispersion", "Duration", "Electric Charge", "Electric Current", "Electric Potential Difference", "V Electric Resistance", "Energy", "Frequency", "Fuel Efficiency", "Illuminance", "Information Storage", "Length", "Mass", "Power", "Pressure", "Speed", "Temperature", "Volume"},
-	"storageUnit":                   {"bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"},
 	"inputType":                     {"Text", "Number", "URL", "Date", "Time", "Date and Time"},
 	"appSplitRatio":                 {"half", "thirdByTwo"},
 	"sortOrder":                     {"asc", "desc"},
 	"windowSorting":                 {"Title", "App Name", "Width", "Height", "X Position", "Y Position", "Window Index", "Name", "Random"},
-	"timerDuration":                 {"hr", "min", "sec"},
-	"dateUnit":                      {"sec", "min", "hr", "days", "weeks", "months", "yr"},
-	"dateOperation":                 {"Add", "Subtract", "Get Start of Minute", "Get Start of Hour", "Get Start of Day", "Get Start of Week", "Get Start of Month", "Get Start of Year"},
 	"fileLabel":                     {"red", "orange", "yellow", "green", "blue", "purple", "gray"},
 	"filesSortBy":                   {"File Size", "File Extension", "Creation Date", "File Path", "Last Modified Date", "Name", "Random"},
 	"fileOrderings":                 {"Smallest First", "Biggest First", "Latest First", "Oldest First", "A to Z", "Z to A"},
-	"seekBehavior":                  {"To Time", "Forward By", "Backward By"},
 	"Acceleration":                  {"m/s²", "g-force"},
 	"Angle":                         {"degrees", "arcminutes", "arcseconds", "radians", "grad", "revolutions"},
 	"Area":                          {"Mm²", "square kilometers", "square meters", "square centimeters", "mm²", "um²", "nm²", "square inches", "square feet", "square yards", "square miles", "acres", "a", "hectares"},
@@ -129,6 +133,8 @@ var enumerations = map[string][]string{
 	"Temperature":                   {"K", "ºC", "ºF"},
 	"Volume":                        {"ML", "kL", "liter", "dL", "cL", "mL", "km³", "m³", "dm³", "cm³", "mm³", "in³", "ft³", "yd³", "mi³", "acre ft", "bushel", "tsp", "tbsp", "fl oz", "pt", "qt", "Imp gal", "mcup"},
 	"fileOrderBy":                   {"Smallest First", "Biggest First", "Latest First", "Oldest First", "A to Z", "Z to A"},
+	"imagePlaygroundStyle":          {"animation", "illustration", "sketch", "chatgpt", "chatgpt_oil_painting", "chatgpt_watercolor", "chatgpt_vector", "chatgpt_anime", "chatgpt_print"},
+	"saveToPlaygroundBehavior":      {"always", "askWhenRun", "never"},
 	"focusModes":                    {"Do Not Disturb", "Personal", "Work", "Sleep", "Driving"},
 	"focusUntil":                    {"Turned Off", "Time", "I Leave", "Event Ends"},
 }
@@ -141,27 +147,41 @@ func setCurrentAction(identifier string, definition *actionDefinition) {
 	currentAction = *definition
 }
 
+func saveCurrentAction() {
+	saveAction = currentAction
+	saveActionIdentifier = currentActionIdentifier
+	saveArguments = currentArguments
+	saveArgumentsSize = currentArgumentsSize
+}
+
+func restoreCurrentAction() {
+	currentAction = saveAction
+	currentActionIdentifier = saveActionIdentifier
+	currentArguments = saveArguments
+	currentArgumentsSize = saveArgumentsSize
+}
+
 // undefinable checks if the current action cannot be defined using only Cherri because of the way it is defined.
 func undefinable() bool {
-	if currentAction.addParams != nil {
-		var addedParams = currentAction.addParams([]actionArgument{})
+	if currentAction.appendParams != nil {
+		var addedParams = currentAction.appendParams([]actionArgument{})
 		if len(addedParams) == 0 {
 			return true
 		}
 	}
 
-	return currentAction.builtin || currentAction.make != nil || currentAction.check != nil || currentAction.decomp != nil || currentAction.appIntent != emptyAppIntent
+	return currentAction.builtin || currentAction.makeParams != nil || currentAction.check != nil || currentAction.decomp != nil || currentAction.appIntent != emptyAppIntent
 }
 
 // makeAction builds an action based on its actionDefinition and adds it to the shortcut.
-func makeAction(arguments []actionArgument, reference *map[string]any) {
+func makeAction(arguments []actionArgument, reference *WFActionReference) {
 	actionIndex++
 	// Determine identifier
 	var ident = getFullActionIdentifier()
 	// Determine parameters
 	var params = getActionParameters(arguments)
 	// Additionally add the output name and UUID of this action if provided
-	addAction(ident, attachReferenceToParams(&params, reference))
+	addAction(ident, attachReferenceToParams(params, reference))
 }
 
 // getFullActionIdentifier determines the full identifier of currentAction.
@@ -200,37 +220,46 @@ var emptyAppIntent = appIntent{}
 // getActionParameters creates the actions' parameters by injecting the values of the arguments into the defined parameters.
 func getActionParameters(arguments []actionArgument) map[string]any {
 	var params = make(map[string]any)
-	if currentAction.addParams != nil {
-		maps.Copy(params, currentAction.addParams(arguments))
+	if currentAction.appendParams != nil {
+		maps.Copy(params, currentAction.appendParams(arguments))
+	}
+	if len(currentAction.setParams) != 0 {
+		maps.Copy(params, currentAction.setParams)
 	}
 	if currentAction.appIntent != emptyAppIntent {
 		maps.Copy(params, appIntentDescriptor(currentAction.appIntent))
 	}
-	if currentAction.make != nil {
-		return currentAction.make(arguments)
+	if currentAction.makeParams != nil {
+		maps.Copy(params, currentAction.makeParams(arguments))
+		return params
 	}
 	if currentAction.parameters != nil {
 		var argumentsSize = len(arguments)
 		if argumentsSize == 0 {
 			return params
 		}
-		for i, param := range currentAction.parameters {
-			if argumentsSize <= i {
-				return params
-			}
-			if arguments[i].valueType == Nil || param.key == "" {
-				continue
-			}
-			if param.validType == Variable {
-				params[param.key] = variableValue(arguments[i].value.(varValue))
-				continue
-			}
-
-			params[param.key] = argumentValue(arguments, i)
-		}
+		makeActionParams(arguments, params)
 	}
 
 	return params
+}
+
+func makeActionParams(arguments []actionArgument, params map[string]any) {
+	var argumentsSize = len(arguments)
+	for i, param := range currentAction.parameters {
+		if argumentsSize <= i {
+			return
+		}
+		if arguments[i].valueType == Nil || param.key == "" {
+			continue
+		}
+
+		if param.validType == Variable {
+			params[param.key] = variableValue(arguments[i].value.(varValue))
+		} else {
+			params[param.key] = argumentValue(arguments, i)
+		}
+	}
 }
 
 // addStdAction is an alias of addAction that simply prepends the shortcuts bundle identifier to ident.
@@ -257,21 +286,29 @@ func checkAction() {
 	if currentAction.check != nil {
 		currentAction.check(currentArguments, &currentAction)
 	}
-	if currentAction.minVersion != 0 {
-		if currentAction.minVersion > iosVersion {
-			parserError(
-				fmt.Sprintf("Action '%s()' is not available in set minimum version '%.1f'", currentActionIdentifier, math.Ceil(iosVersion)),
-			)
-		}
+
+	checkActionVersion()
+	checkMacActionUsage()
+}
+
+func checkActionVersion() {
+	if currentAction.minVersion != 0 && currentAction.minVersion > iosVersion {
+		parserError(
+			fmt.Sprintf("Action '%s()' is not available in set minimum version '%.1f'", currentActionIdentifier, math.Ceil(iosVersion)),
+		)
 	}
 	if currentAction.maxVersion != 0 {
-		parserWarning(fmt.Sprintf("Action '%s()' has been deprecated as it was removed or significantly modified.", currentActionIdentifier))
 		if currentAction.maxVersion < iosVersion {
 			parserError(
 				fmt.Sprintf("Action '%s()' is not available in set minimum version '%.1f'", currentActionIdentifier, math.Ceil(iosVersion)),
 			)
+		} else {
+			parserWarning(fmt.Sprintf("Action '%s()' has been deprecated as it was removed or significantly modified.", currentActionIdentifier))
 		}
 	}
+}
+
+func checkMacActionUsage() {
 	if isMac, found := definitions["mac"]; found {
 		if !isMac.(bool) && currentAction.macOnly {
 			parserError(
@@ -301,7 +338,7 @@ func checkRequiredArgs() {
 			checkInfiniteArgs(i)
 			continue
 		}
-		if i+1 > currentArgumentsSize && !param.optional && param.defaultValue == nil {
+		if currentArgumentsSize < i+1 && !param.optional && param.defaultValue == nil {
 			var argIndex = i + 1
 			var suffix string
 			switch argIndex {
@@ -336,10 +373,13 @@ func checkEnum(param *parameterDefinition, argument *actionArgument) {
 	if enumerations[param.enum] == nil {
 		parserError(fmt.Sprintf("Undefined enum '%s'", param.enum))
 	}
+	if argument.valueType == Variable {
+		return
+	}
 	if !slices.Contains(enumerations[param.enum], value.(string)) {
 		parserError(
 			fmt.Sprintf(
-				"Invalid argument '%s' for %s.\n\n%s",
+				"Invalid value '%s' for argument '%s'.\n\n%s",
 				value,
 				param.name,
 				generateActionDefinition(*param, true),
@@ -513,8 +553,13 @@ func questionArg(param *parameterDefinition, argument *actionArgument) {
 
 func checkLiteralValue(param *parameterDefinition, argument *actionArgument) {
 	if argument.valueType != param.validType {
+		var inlineVarSolution string
+		if param.validType == String {
+			inlineVarSolution = " or an inline variable reference"
+		}
 		parserError(fmt.Sprintf(
-			"Shortcuts does not allow variables for this argument, use a literal for the argument value.\n\n%s",
+			"Shortcuts does not allow variable values for this argument, use a literal for the argument value%s.\n\n%s",
+			inlineVarSolution,
 			generateActionDefinition(*param, false),
 		))
 	}
@@ -523,7 +568,72 @@ func checkLiteralValue(param *parameterDefinition, argument *actionArgument) {
 func generateActionDefinition(focus parameterDefinition, showEnums bool) string {
 	var definition strings.Builder
 	definition.WriteRune('\n')
+	definition.WriteString(generateActionDoc())
+	definition.WriteString(generateActionCode(focus, showEnums))
 
+	return definition.String()
+}
+
+func generateActionCode(focus parameterDefinition, showEnums bool) string {
+	var actionCode strings.Builder
+	if args.Using("no-ansi") {
+		actionCode.WriteString("```\n")
+	}
+
+	if showEnums {
+		actionCode.WriteString(generateActionParamEnums(focus))
+	}
+
+	if args.Using("debug") {
+		actionCode.WriteString(generateActionDebugDefinition())
+	}
+
+	actionCode.WriteString(fmt.Sprintf("%s(", ansi(currentActionIdentifier, blue, bold)))
+
+	actionCode.WriteString(strings.Join(generateActionArguments(focus), ", "))
+	actionCode.WriteRune(')')
+
+	if currentAction.outputType != "" {
+		actionCode.WriteString(fmt.Sprintf(": %s", ansi(string(currentAction.outputType), magenta)))
+	}
+
+	if args.Using("debug") && currentAction.appendParams != nil {
+		actionCode.WriteString(generateActionAdditionalParams())
+	}
+
+	if args.Using("no-ansi") {
+		actionCode.WriteString("\n```")
+	}
+
+	return actionCode.String()
+}
+
+func generateActionArguments(focus parameterDefinition) (arguments []string) {
+	for _, param := range currentAction.parameters {
+		if param.name == focus.name || focus.name == "" {
+			arguments = append(arguments, generateActionParamDefinition(param))
+		} else {
+			arguments = append(arguments, ansi("...", dim))
+		}
+	}
+	return
+}
+
+func generateActionAdditionalParams() string {
+	var addParams = currentAction.appendParams([]actionArgument{})
+	if len(currentAction.setParams) != 0 {
+		maps.Copy(addParams, currentAction.setParams)
+	}
+	if len(addParams) != 0 {
+		var jsonBytes, jsonErr = json.MarshalIndent(addParams, strings.Repeat("\t", tabLevel), "\t")
+		handle(jsonErr)
+		return fmt.Sprintf(" %s", string(jsonBytes))
+	}
+	return ""
+}
+
+func generateActionDoc() string {
+	var actionDoc strings.Builder
 	var docTitle = currentAction.doc.title
 	if currentAction.doc.title == "" {
 		if args.Using("no-ansi") {
@@ -533,100 +643,33 @@ func generateActionDefinition(focus parameterDefinition, showEnums bool) string 
 		}
 	}
 	if args.Using("no-ansi") {
-		definition.WriteString("### ")
+		actionDoc.WriteString("### ")
 	}
-	definition.WriteString(fmt.Sprintf("%s\n", ansi(docTitle, bold, underline)))
-	definition.WriteRune('\n')
+	actionDoc.WriteString(fmt.Sprintf("%s\n", ansi(docTitle, bold, underline)))
+	actionDoc.WriteRune('\n')
 
 	if currentAction.doc.warning != "" {
 		if args.Using("no-ansi") {
-			definition.WriteString(fmt.Sprintf("{: .warning }\n%s\n\n", currentAction.doc.warning))
+			actionDoc.WriteString(fmt.Sprintf("{: .warning }\n%s\n\n", currentAction.doc.warning))
 		} else {
-			definition.WriteString(ansi(fmt.Sprintf("Warning: %s", currentAction.doc.warning), yellow, bold, underline))
-			definition.WriteRune('\n')
-			definition.WriteRune('\n')
+			actionDoc.WriteString(ansi(fmt.Sprintf("Warning: %s", currentAction.doc.warning), yellow, bold, underline))
+			actionDoc.WriteRune('\n')
+			actionDoc.WriteRune('\n')
 		}
 	}
 
 	if currentAction.doc.description != "" {
-		definition.WriteString(fmt.Sprintf("%s\n\n", ansi(currentAction.doc.description, italic)))
+		actionDoc.WriteString(fmt.Sprintf("%s\n\n", ansi(currentAction.doc.description, italic)))
 	}
 
-	if args.Using("no-ansi") {
-		definition.WriteString("```\n")
-	}
-
-	if showEnums {
-		definition.WriteString(generateActionParamEnums(focus))
-	}
-
-	if args.Using("debug") {
-		var definitionType string
-		if currentAction.builtin {
-			definitionType = "#builtin"
-		} else {
-			definitionType = "#define"
-		}
-
-		definition.WriteString(ansi(fmt.Sprintf("%s action ", definitionType), orange))
-
-		if currentAction.defaultAction {
-			definition.WriteString(ansi("default ", yellow))
-		}
-		if currentAction.macOnly {
-			definition.WriteString(ansi("mac ", orange))
-		} else if currentAction.nonMacOnly {
-			definition.WriteString(ansi("!mac ", orange))
-		}
-		if currentAction.minVersion != 0 {
-			definition.WriteString(ansi(fmt.Sprintf("v%1.f> ", currentAction.minVersion), cyan))
-		}
-		if currentAction.maxVersion != 0 {
-			definition.WriteString(ansi(fmt.Sprintf("v%1.f<", currentAction.maxVersion), red, underline))
-			definition.WriteRune(' ')
-		}
-
-		if currentAction.identifier != "" || currentAction.appIdentifier != "" {
-			setCurrentAction(currentActionIdentifier, &currentAction)
-			definition.WriteString(ansi(fmt.Sprintf("'%s' ", getActionIdentifier()), red))
-		}
-	}
-
-	definition.WriteString(fmt.Sprintf("%s(", ansi(currentActionIdentifier, blue, bold)))
-	var arguments []string
-	for _, param := range currentAction.parameters {
-		if param.name == focus.name || focus.name == "" {
-			arguments = append(arguments, generateActionParamDefinition(param))
-		} else {
-			arguments = append(arguments, ansi("...", dim))
-		}
-	}
-	definition.WriteString(strings.Join(arguments, ", "))
-	definition.WriteRune(')')
-
-	if currentAction.outputType != "" {
-		definition.WriteString(fmt.Sprintf(": %s", ansi(string(currentAction.outputType), magenta)))
-	}
-
-	if args.Using("debug") && currentAction.addParams != nil {
-		var addParams = currentAction.addParams([]actionArgument{})
-		if len(addParams) != 0 {
-			var jsonBytes, jsonErr = json.MarshalIndent(addParams, strings.Repeat("\t", tabLevel), "\t")
-			handle(jsonErr)
-			definition.WriteString(fmt.Sprintf(" %s", string(jsonBytes)))
-		}
-	}
-
-	if args.Using("no-ansi") {
-		definition.WriteString("\n```")
-	}
-
-	return definition.String()
+	return actionDoc.String()
 }
+
+var usedEnums []string
 
 func generateActionParamEnums(focus parameterDefinition) string {
 	var definition strings.Builder
-	var usedEnums []string
+	usedEnums = []string{}
 	for _, param := range currentAction.parameters {
 		if param.enum == "" || (focus.name != "" && focus.name != param.name) || slices.Contains(usedEnums, param.enum) {
 			continue
@@ -656,6 +699,9 @@ func generateActionParamDefinition(param parameterDefinition) string {
 		argType = fmt.Sprintf("%s ", param.validType)
 	} else {
 		argType = fmt.Sprintf("%s ", param.enum)
+		if param.qty {
+			argType = fmt.Sprintf("#%s(qty)", argType)
+		}
 	}
 	definition.WriteString(ansi(argType, magenta))
 
@@ -674,12 +720,48 @@ func generateActionParamDefinition(param parameterDefinition) string {
 	if param.defaultValue != nil {
 		definition.WriteString(ansi(" = ", dim))
 		var defaultValue string
-		if reflect.TypeOf(param.defaultValue).Kind() == reflect.String {
+		if param.validType == Quantity {
+			var qtyArgs = param.defaultValue.([]actionArgument)
+			defaultValue = fmt.Sprintf("qty(%d, \"%s\")", qtyArgs[0].value, qtyArgs[1].value)
+		} else if reflect.TypeOf(param.defaultValue).Kind() == reflect.String {
 			defaultValue = fmt.Sprintf("\"%v\"", strings.Replace(param.defaultValue.(string), "\n", "\\n", 1))
 		} else {
 			defaultValue = fmt.Sprintf("%v", param.defaultValue)
 		}
 		definition.WriteString(ansi(defaultValue, green))
+	}
+
+	return definition.String()
+}
+
+func generateActionDebugDefinition() string {
+	var definition strings.Builder
+	var definitionType string
+	if currentAction.builtin {
+		definitionType = "#builtin"
+	}
+
+	definition.WriteString(ansi(fmt.Sprintf("%s action ", definitionType), orange))
+
+	if currentAction.defaultAction {
+		definition.WriteString(ansi("default ", yellow))
+	}
+	if currentAction.macOnly {
+		definition.WriteString(ansi("mac ", orange))
+	} else if currentAction.nonMacOnly {
+		definition.WriteString(ansi("!mac ", orange))
+	}
+	if currentAction.minVersion != 0 {
+		definition.WriteString(ansi(fmt.Sprintf("v%1.f> ", currentAction.minVersion), cyan))
+	}
+	if currentAction.maxVersion != 0 {
+		definition.WriteString(ansi(fmt.Sprintf("v%1.f<", currentAction.maxVersion), red, underline))
+		definition.WriteRune(' ')
+	}
+
+	if currentAction.identifier != "" || currentAction.appIdentifier != "" {
+		setCurrentAction(currentActionIdentifier, &currentAction)
+		definition.WriteString(ansi(fmt.Sprintf("'%s' ", getActionIdentifier()), red))
 	}
 
 	return definition.String()
@@ -698,9 +780,6 @@ func appIntentDescriptor(intent appIntent) map[string]any {
 
 // handleActionDefinitions parses defined actions in the current file and collects them into the actions map.
 func handleActionDefinitions() {
-	if !regexp.MustCompile(`#define action (?:'(.+)')?(.*?)\(`).MatchString(contents) && !regexp.MustCompile(`enum (.*?) \{`).MatchString(contents) {
-		return
-	}
 	parseActionDefinitions()
 
 	resetParse()
@@ -709,43 +788,25 @@ func handleActionDefinitions() {
 func parseActionDefinitions() {
 	for char != -1 {
 		switch {
-		case isChar('/'):
-			args.Args["comments"] = ""
-			preParsing = false
+		case char == '"':
+			collectString()
+			advanceUntil('\n')
+		case commentAhead():
 			collectComment()
-			preParsing = true
-			delete(args.Args, "comments")
-			continue
-		case tokenAhead(Enumeration):
+		case startOfLineTokenAhead(Enumeration):
 			collectEnumeration()
-		case tokenAhead(Definition):
+		case startOfLineTokenAhead(Action):
 			advance()
-			if tokenAhead(Action) {
-				advance()
-				collectDefinedAction()
-				continue
-			}
+			collectDefinedAction()
 		}
 		advance()
 	}
 	tokens = []token{}
 }
 
-var docCommentRegex = regexp.MustCompile(`^\[Doc]: ?(?:\[(.*?)])?\s(.*?)?(?:: (.*?))?$`)
-
 func collectDefinedAction() {
-	var doc selfDoc
 	var lineRef = newLineReference()
-	var lastToken = getLastAddedToken()
-	if lastToken.typeof == Comment {
-		var comment = lastToken.value.(string)
-		var matches = docCommentRegex.FindAllStringSubmatch(comment, -1)
-		if len(matches) != 0 {
-			var match = matches[0]
-			doc = selfDoc{title: strings.TrimSpace(match[2]), description: strings.TrimSpace(match[3]), category: currentCategory, subcategory: match[1]}
-			tokens = slices.Delete(tokens, len(tokens)-1, len(tokens))
-		}
-	}
+	var doc = checkDocComment()
 
 	var defaultAction bool
 	if tokenAhead(Default) {
@@ -763,7 +824,7 @@ func collectDefinedAction() {
 		advance()
 	}
 
-	var minVersion, maxVersion = collectVersionDefinition()
+	var minVersion, maxVersion = collectVersionLimitsDefinition()
 
 	var shortIdentifier string
 	var overrideIdentifier string
@@ -771,7 +832,8 @@ func collectDefinedAction() {
 		advance()
 
 		var workflowIdentifier = collectRawString()
-		if len(strings.Split(workflowIdentifier, ".")) < 4 {
+		var parts = strings.Split(workflowIdentifier, ".")
+		if len(parts) < 3 || (len(parts) == 3 && workflowIdentifier == strings.ToLower(workflowIdentifier)) {
 			shortIdentifier = workflowIdentifier
 		} else {
 			overrideIdentifier = workflowIdentifier
@@ -786,15 +848,7 @@ func collectDefinedAction() {
 
 	advance()
 
-	var addParams paramsFunc
-	if char == '{' {
-		advance()
-		var dict = collectDictionary()
-		handleRawParams(dict.(map[string]interface{}))
-		addParams = func(args []actionArgument) map[string]any {
-			return dict.(map[string]any)
-		}
-	}
+	var addParams = collectAdditionalParams()
 
 	lineRef.replaceLines()
 
@@ -803,7 +857,7 @@ func collectDefinedAction() {
 		overrideIdentifier: overrideIdentifier,
 		parameters:         arguments,
 		outputType:         outputType,
-		addParams:          addParams,
+		appendParams:       addParams,
 		defaultAction:      defaultAction,
 		macOnly:            macOnlyAction,
 		nonMacOnly:         nonMacOnlyAction,
@@ -813,7 +867,43 @@ func collectDefinedAction() {
 	}
 }
 
-func collectVersionDefinition() (minVersion float64, maxVersion float64) {
+func collectAdditionalParams() (function paramsFunc) {
+	if char == '{' {
+		advance()
+		var dict = collectDictionary()
+		handleRawParams(dict.(map[string]interface{}))
+		return func(args []actionArgument) map[string]any {
+			return dict.(map[string]any)
+		}
+	}
+
+	return
+}
+
+var docCommentRegex = regexp.MustCompile(`^\[Doc]: ?(?:\[(.*?)])?\s(.*?)?(?:: (.*?))?$`)
+
+func checkDocComment() (doc selfDoc) {
+	var lastToken = getLastAddedToken()
+	if lastToken.typeof == Comment {
+		var comment = lastToken.value.(string)
+
+		var matches = docCommentRegex.FindAllStringSubmatch(comment, -1)
+		if len(matches) != 0 {
+			var match = matches[0]
+			doc = selfDoc{
+				title:       strings.TrimSpace(match[2]),
+				description: strings.TrimSpace(match[3]),
+				category:    currentCategory,
+				subcategory: match[1],
+			}
+
+			tokens = slices.Delete(tokens, len(tokens)-1, len(tokens))
+		}
+	}
+	return
+}
+
+func collectVersionLimitsDefinition() (minVersion float64, maxVersion float64) {
 	for char != -1 && char != ' ' {
 		if char != 'v' || char == 'v' && !intChar(next(1)) {
 			break
@@ -841,8 +931,8 @@ func collectVersionDefinition() (minVersion float64, maxVersion float64) {
 
 func collectActionDefinition(until rune) (identifier string, arguments []parameterDefinition, outputType tokenType) {
 	identifier = collectIdentifier()
-	if _, found := customActions[identifier]; found {
-		parserError(fmt.Sprintf("Duplication declaration of custom action '%s()'", identifier))
+	if _, found := functions[identifier]; found {
+		parserError(fmt.Sprintf("Duplication declaration of function '%s()'", identifier))
 	}
 	if _, found := actions[identifier]; found {
 		parserError(fmt.Sprintf("Duplication declaration of action '%s()'", identifier))
@@ -865,17 +955,32 @@ func collectActionDefinition(until rune) (identifier string, arguments []paramet
 	return
 }
 
+func collectEnumerationType(valueType *tokenType, quantity *bool, until rune) (enumeration string) {
+	if isChar('#') {
+		*quantity = true
+	}
+
+	var ahead = lookAheadUntil(until)
+	if enumerations[ahead] != nil {
+		enumeration = collectUntil(until)
+		*valueType = String
+	}
+
+	if *quantity {
+		*valueType = Quantity
+	}
+
+	return enumeration
+}
+
 func collectParameterDefinitions() (arguments []parameterDefinition) {
 	for char != ')' && char != -1 {
 		var valueType tokenType
 		var value any
 
-		var enumeration string
-		var ahead = lookAheadUntil(' ')
-		if enumerations[ahead] != nil {
-			enumeration = collectUntil(' ')
-			valueType = String
-		} else {
+		var quantity bool
+		var enumeration = collectEnumerationType(&valueType, &quantity, ' ')
+		if enumeration == "" {
 			collectType(&valueType, &value, ' ')
 		}
 
@@ -913,8 +1018,7 @@ func collectParameterDefinitions() (arguments []parameterDefinition) {
 		skipWhitespace()
 
 		var defaultValue any
-		switch char {
-		case '=':
+		if char == '=' {
 			advance()
 			skipWhitespace()
 
@@ -935,6 +1039,7 @@ func collectParameterDefinitions() (arguments []parameterDefinition) {
 			optional:     optional,
 			defaultValue: defaultValue,
 			enum:         enumeration,
+			qty:          quantity,
 			literal:      literal,
 		})
 
@@ -950,5 +1055,21 @@ func makeActionValue(identifier string, arguments []actionArgument) action {
 		ident: identifier,
 		def:   actions[identifier],
 		args:  arguments,
+	}
+}
+
+func makeQuantityFieldValue(args []actionArgument) map[string]any {
+	var magnitude = argumentValue(args, 0)
+
+	if args[0].valueType == Variable {
+		magnitude = magnitude.(map[string]any)["Value"]
+	}
+
+	return map[string]any{
+		"Value": map[string]any{
+			"Magnitude": magnitude,
+			"Unit":      argumentValue(args, 1),
+		},
+		"WFSerializationType": "WFQuantityFieldValue",
 	}
 }
