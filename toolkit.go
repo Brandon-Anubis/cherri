@@ -226,10 +226,10 @@ func importParamDefinitions(name string, toolId string, identifier string) (defi
 		def.name = paramName
 
 		var paramTokenType, tokenTypeErr = getActionParamType(toolId, def.key)
+		handle(tokenTypeErr)
 		if paramTokenType == Quantity {
 			def.qty = true
 		}
-		handle(tokenTypeErr)
 		def.validType = paramTokenType
 
 		var enums, enumErr = getParamEnums(identifier, def.key)
